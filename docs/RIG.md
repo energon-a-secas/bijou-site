@@ -88,7 +88,7 @@ arm's whole band with `band: { L, R }`.
 | 100 to 149 | legs | skin 100, legwear 110, shoes 120, trouser legs 130 |
 | 150 to 249 | torso | skin 150, base slip 160, swim 170, bottoms 180, tops and dresses 200, neckwear 220, outerwear 230, bibs 235 |
 | 300 to 349 | arms, `mid` | upper 300, fore 301, held item 302, hand 303, sleeves 310 to 312, outer sleeves 320 to 321, gloves 330, bracelets 332 |
-| 400 to 479 | head | skin 400, bang shadow 405, features 410, side locks 440, glasses 445, bangs 450, brows 452, hats 460, hair accessories 470 |
+| 395 to 479 | head | ears 399, skin 400, bang shadow 405, features 410, side locks 440, glasses 445, bangs 450, brows 452, hats 460, hair accessories 470 |
 | 300 band + 200 | arms, `front` | a hand in front of the face |
 
 ## 5. Slots and conflicts
