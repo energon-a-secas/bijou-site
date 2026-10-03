@@ -56,7 +56,7 @@ export function renderItems(s) {
     if (owned && !s.seen.has(it.id)) { cls.push('is-new'); fresh.push(it.id); }
     if (s.wish && it.tags.includes(s.wish.tag)) cls.push('is-wished');
     return `<li><button class="${cls.join(' ')}" type="button" data-id="${it.id}"${owned ? ` data-drag-id="${it.id}"` : ''}` +
-      ` aria-pressed="${isWorn(s, it.id)}" aria-label="${escHtml(label(s, it))}">` +
+      ` aria-pressed="${isWorn(s, it.id)}" aria-label="${escHtml(label(s, it) + (s.wish && it.tags.includes(s.wish.tag) ? ' Matches her wish.' : ''))}">` +
       `${itemThumb(it, s.head)}<span class="item__name">${escHtml(it.name)}</span>` +
       `<span class="item__meta">${meta(s, it)}</span></button></li>`;
   }).join('');

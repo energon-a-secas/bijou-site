@@ -594,8 +594,8 @@ button:active,
 .request {
   position: absolute; z-index: 4; top: var(--space-3); left: var(--space-3); max-width: calc(100% - 24px);
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px;
-  padding: 8px 12px; border-radius: 12px; background: rgb(10 6 26 / 72%); color: #fff;
-  font-size: var(--text-sm); backdrop-filter: blur(6px);
+  padding: 8px 12px; border-radius: 12px; background: rgb(18 10 38 / 88%); color: #fff;
+  font-size: var(--text-sm);
 }
 .request__label { color: #f5d0fe; }
 .request__progress { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
@@ -612,7 +612,7 @@ button:active,
 }
 
 .chip {
-  min-height: var(--control-height-sm); padding: 0 14px; border-radius: 999px;
+  min-height: var(--control-height); padding: 0 16px; border-radius: 999px;
   border: 1px solid var(--border-strong, var(--border)); background: rgb(10 6 26 / 55%);
   color: var(--text-primary); font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer;
   transition: background var(--dur-fast, 120ms) var(--ease-out), border-color var(--dur-fast, 120ms) var(--ease-out);
@@ -641,7 +641,7 @@ button:active,
 }
 .tabs { display: flex; gap: 2px; padding: 6px; border-bottom: 1px solid var(--border); }
 .tab {
-  flex: 1; min-height: var(--control-height-sm); border: 0; border-radius: var(--radius-sm);
+  flex: 1; min-height: var(--control-height); border: 0; border-radius: var(--radius-sm);
   background: transparent; color: var(--text-secondary); font: inherit; font-weight: 600; cursor: pointer;
 }
 .tab:hover { color: var(--text-primary); background: var(--surface-2); }
@@ -690,7 +690,7 @@ fieldset.control-row > .field__label { float: left; width: 100%; }
 fieldset.control-row > .field__label + * { clear: both; }
 .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
 .swatch {
-  width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;
+  width: 40px; height: 40px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 25%); background: var(--sw);
 }
 .swatch[aria-pressed="true"] { border-color: var(--accent-bright); box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--accent); }

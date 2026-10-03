@@ -14,10 +14,11 @@ const ICON = {
 
 export function createFx({ stage, layer, bubble, live, doll }) {
   let talkTimer = 0, hideTimer = 0, speaking = false;
+  let box = null; // stage rect and bubble size, read once per line instead of every frame
 
-  function toStage(pt) {
+  function toStage(pt, rect) {
     const m = doll.svg.getScreenCTM();
-    const r = stage.getBoundingClientRect();
+    const r = rect || stage.getBoundingClientRect();
     if (!m) return { x: 0, y: 0 };
     return { x: m.a * pt.x + m.c * pt.y + m.e - r.left, y: m.b * pt.x + m.d * pt.y + m.f - r.top };
   }
@@ -63,17 +64,17 @@ export function createFx({ stage, layer, bubble, live, doll }) {
     }, 110);
     clearTimeout(hideTimer);
     hideTimer = setTimeout(() => { bubble.hidden = true; speaking = false; stopTalk(); }, dur);
+    box = { rect: stage.getBoundingClientRect(), w: stage.clientWidth, bw: bubble.offsetWidth, bh: bubble.offsetHeight };
     place();
   }
 
-  /** Keep the bubble above her head; called every frame. */
+  /** Keep the bubble above her head; called every frame without re-measuring the stage or bubble. */
   function place() {
-    if (!speaking) return;
-    const p = toStage(doll.worldOf('head', 200, 96));
-    const w = stage.clientWidth;
-    const half = Math.min(bubble.offsetWidth / 2, w / 2 - 8);
-    bubble.style.left = `${Math.max(half + 8, Math.min(w - half - 8, p.x))}px`;
-    bubble.style.top = `${Math.max(bubble.offsetHeight + 8, p.y - 6)}px`;
+    if (!speaking || !box) return;
+    const p = toStage(doll.worldOf('head', 200, 96), box.rect);
+    const half = Math.min(box.bw / 2, box.w / 2 - 8);
+    bubble.style.left = `${Math.max(half + 8, Math.min(box.w - half - 8, p.x))}px`;
+    bubble.style.top = `${Math.max(box.bh + 8, p.y - 6)}px`;
   }
 
   return { burst, say, place, toStage, get speaking() { return speaking; } };
