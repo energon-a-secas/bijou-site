@@ -194,14 +194,13 @@ function held(style, p) {
 }
 
 /** A bead bracelet round the right wrist, on the forearm so it follows the arm. */
-function wristwear(style, p, M) {
+function wristwear(M) {
   const W = M.wrist.R, colors = ['#ff6f9a', '#3fd6c4', '#ffd84d', '#6aa8ff', '#b98cff', '#7ad37a', '#ff9a5c'];
   let svg = '';
   for (let i = 0; i < 7; i++) {
     const t = i / 6, x = W.x - 7.5 + t * 15, y = W.y - 5 + Math.sin(t * Math.PI) * 2.6;
     svg += `<circle cx="${f1(x)}" cy="${f1(y)}" r="2.7" fill="${colors[i]}" stroke="${inkOf(colors[i])}" stroke-width=".8"/><circle cx="${f1(x - 0.8)}" cy="${f1(y - 0.9)}" r=".8" fill="#fff" opacity=".7"/>`;
   }
-  void style; void p;
   return [{ bone: 'foreArmR', z: 332, svg }];
 }
 
@@ -213,7 +212,7 @@ export function accessoryPieces(item, M, p, ctx) {
     case 'neck': return neckwear(style, p, M);
     case 'glasses': return glasses(style, p);
     case 'held': return held(style, p);
-    case 'wrist': return wristwear(style, p, M);
+    case 'wrist': return wristwear(M);
     default: return [];
   }
 }

@@ -114,13 +114,5 @@ export function save(s, now = false) {
   return true;
 }
 
-export function resetSave(s) {
-  store.save(null);
-  Object.assign(s, {
-    name: 'Bijou', body: { ...DEFAULT_BODY }, head: { ...DEFAULT_HEAD }, outfit: { ...STARTER_OUTFIT },
-    unlocked: new Set(FREE_IDS), seen: new Set(FREE_IDS), hearts: 0, milestones: new Set(), looks: [], wish: null,
-  });
-}
-
 /** The doll's build config. */
 export const dollConfig = (s) => ({ body: s.body, head: s.head, outfit: s.outfit });

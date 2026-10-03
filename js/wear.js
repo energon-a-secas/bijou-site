@@ -68,7 +68,7 @@ function dress(item, M) {
   return out;
 }
 
-function topGen(item, M, ctx) {
+function topGen(item, M) {
   const o = item.params || {}, p = paintOf(item);
   const hem = { crop: M.waistY - 6, waist: M.waistY + 14, hip: M.hipY + 6, tunic: M.hipY + 30 }[o.hem || 'waist'];
   const b = bodice(M, { neck: o.neck, hem, ease: o.ease ?? 2.4, loose: o.loose || 0, hemCurve: o.hem === 'hip' ? 3 : 2 });
@@ -94,7 +94,6 @@ function topGen(item, M, ctx) {
   out.push({ bone: 'spine', z: o.layer === 'over' ? 236 : 200, svg });
   if (o.hood) out.push(hood(M, p, o.ears));
   if (o.sleeve && o.sleeve !== 'none') out.push(...sleeves(M, { len: o.sleeve, puff: o.puff, cuff: o.cuff, ease: o.loose ? 3.4 : 2.2 }, p));
-  void ctx;
   return out;
 }
 
@@ -160,9 +159,8 @@ function swim2(item, M) {
   const topY = o.bottom === 'high' ? M.waistY - 2 : M.waistY + 22;
   const half = [[200, topY + 1], [200 + M.torsoHW(topY) + 1.8, topY, 1], [200 + M.torsoHW(M.hipY) + 2, M.hipY, 1], [210, M.hipY + 24], [200, M.hipY + 29, 1]];
   let bsvg = cloth(smooth(mirror(half)), p);
-  if (o.bottom === 'high') bsvg += [0, 1].map(() => '').join('') + `<circle cx="200" cy="${f1(topY + 9)}" r="2.2" fill="${p.trim}"/>`;
-  const out2 = { bone: 'root', z: 170, svg: bsvg };
-  out.push(out2);
+  if (o.bottom === 'high') bsvg += `<circle cx="200" cy="${f1(topY + 9)}" r="2.2" fill="${p.trim}"/>`;
+  out.push({ bone: 'root', z: 170, svg: bsvg });
   if (o.bottom === 'skirt') out.push(...skirt(M, { topY: M.waistY + 20, hem: M.hipY + 34, flare: 0.6, band: false, lace: o.frill ? p.trim : null, z: 172 }, p));
   return out;
 }

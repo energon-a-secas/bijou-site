@@ -44,7 +44,6 @@ export function legwearPieces(item, M, p) {
       const th = legSegment(M, side, 'thigh', -0.04, 1.03, 0.8);
       out.push({ bone: `thigh${side}`, z: 110, svg: shape(smooth(th.pts), p.fill, p.ink, 1.8) });
     }
-    void s;
   }
   if (style === 'tights') {
     const ys = [M.waistY + 20, M.hipY - 4, M.hipY + 8];

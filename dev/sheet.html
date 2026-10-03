@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="robots" content="noindex"><title>Bijou dev sheet</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body{background:#2b1f4f;display:block;margin:0}
+.g{display:grid;grid-template-columns:repeat(var(--c,6),1fr);gap:4px;padding:4px}
+.cell{background:linear-gradient(#3a2a63,#c9a0d8);position:relative;height:var(--h,290px);border-radius:6px;overflow:hidden}
+.cell svg{position:absolute;inset:0;width:100%;height:100%}
+.cell b{position:absolute;left:4px;top:2px;color:#fff;font:11px sans-serif;z-index:2}
+</style></head><body><div class="g" id="g"></div>
+<script type="module">
+import { createDoll } from '../js/doll.js';
+import { resolvePose, POSES } from '../js/poses.js';
+import { DEFAULT_BODY, DEFAULT_HEAD, HEADS } from '../js/looks.js';
+import { STARTER_OUTFIT, CATALOG } from '../js/catalog.js';
+const q = new URLSearchParams(location.search);
+const mode = q.get('m') || 'poses';
+document.documentElement.style.setProperty('--c', q.get('c') || 6);
+document.documentElement.style.setProperty('--h', (q.get('h') || 290) + 'px');
+const zoom = q.get('zoom');
+const cells = [];
+const base = { body: { ...DEFAULT_BODY }, head: { ...DEFAULT_HEAD }, outfit: STARTER_OUTFIT };
+if (mode === 'poses') Object.keys(POSES).forEach((p) => cells.push({ label: p, cfg: base, pose: p }));
+if (mode === 'heads') HEADS.forEach((h) => cells.push({ label: h.name, cfg: { ...base, head: h.head }, pose: 'stand' }));
+if (mode === 'items') {
+  const slot = q.get('slot');
+  CATALOG.filter((i) => !slot || i.slot === slot).forEach((i) => cells.push({ label: i.name, cfg: { ...base, outfit: { [i.slot]: i.id, ...(i.slot === 'top' ? { bottom: 'bottom-pleated' } : i.slot === 'bottom' ? { top: 'top-blouse' } : {}) } }, pose: q.get('pose') || 'stand' }));
+}
+if (mode === 'bodies') [[0,0],[0.5,0.5],[1,1],[0,1],[1,0]].forEach(([h,b]) => cells.push({ label: `h${h} b${b}`, cfg: { ...base, body: { ...DEFAULT_BODY, height: h, build: b } }, pose: q.get('pose') || 'stand' }));
+const g = document.getElementById('g');
+for (const c of cells) {
+  const div = document.createElement('div'); div.className = 'cell';
+  div.innerHTML = `<b>${c.label}</b><svg class="doll" preserveAspectRatio="xMidYMax meet"></svg>`;
+  g.append(div);
+  const svg = div.querySelector('svg');
+  const doll = createDoll(svg);
+  const M = doll.build(c.cfg);
+  const p = POSES[c.pose];
+  const t = resolvePose(M, p, { holding: !!doll.flags.held });
+  doll.setPoseLook({ hands: p.hands, bands: p.band });
+  doll.setProp(p.prop, 0);
+  doll.setExpression(p.expr);
+  doll.render({ bones: t.bones, root: { x: 0, y: t.rootY } }, { yaw: 0, pitch: 0, look: { x: 0, y: 0 } });
+  if (zoom) { svg.setAttribute('viewBox', zoom.split(',').join(' ')); svg.setAttribute('preserveAspectRatio', 'xMidYMid meet'); }
+}
+</script></body></html>

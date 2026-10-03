@@ -1,0 +1,58 @@
+---
+config:
+  theme: base
+  themeVariables:
+    primaryColor: "#0f172a"
+    primaryTextColor: "#e2e8f0"
+    primaryBorderColor: "#0063e5"
+    lineColor: "#38bdf8"
+    secondaryColor: "#1e293b"
+    tertiaryColor: "#1e293b"
+    clusterBkg: "#f0f7ff"
+    clusterBorder: "#bfdbfe"
+    edgeLabelBackground: "#e8f0ff"
+    mainBkg: "#0f172a"
+    nodeBorder: "#0063e5"
+    titleColor: "#1e1b4b"
+    fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif"
+    fontSize: "13px"
+---
+flowchart TB
+    User([User]) --> HTML["index.html\nStage + wardrobe panel"]
+
+    subgraph Doll["The doll (one SVG)"]
+        rig["rig.js\nBones, FK, IK\n(contract: docs/RIG.md)"]
+        draw["body.js · face.js · hair.js\nwear*.js\nPieces pinned to bones"]
+        catalog["catalog.js · looks.js\nItems, palettes, heads"]
+        doll["doll.js\nDepth-sorted pieces"]
+        motion["motion.js\nBlend, breath, springs,\ndrag, twirl"]
+        catalog --> draw --> doll
+        rig --> doll
+        motion -->|"frame per rAF"| doll
+    end
+
+    subgraph Mind["Her mind"]
+        behavior["behavior.js\nIdles, reactions,\nsleep, wishes"]
+        lines["lines.js\nWhat she says"]
+        wardrobe["wardrobe.js\nEquip, unlock, hearts"]
+        lines --> behavior
+        behavior --> wardrobe
+    end
+
+    subgraph Page["Page"]
+        app["app.js\nEntry point"]
+        events["events.js · dnd.js · interact.js\nGestures and controls"]
+        render["render.js · panels.js · thumbs.js\nWardrobe, style, looks"]
+        fx["fx.js\nBubble + particles"]
+        companion["companion.js\nPop-out, snapshot"]
+    end
+
+    HTML --> app
+    app --> events
+    events -->|"pat · poke · lift · dress"| behavior
+    behavior -->|"pose + face"| motion
+    behavior --> fx
+    events --> render
+    companion -->|"moves the stage into\nDocument PiP"| motion
+    state["state.js\nValidated save"] <-->|"bijou-site:save"| Storage[("localStorage")]
+    wardrobe --> state
