@@ -10,7 +10,11 @@ import { BACKDROPS } from './stage.js';
 
 const store = createStore({ key: 'bijou-site:save', version: 1 });
 
-export const today = () => new Date().toISOString().slice(0, 10);
+/** The visitor's local calendar date: the day rolls over at their midnight, not UTC's. */
+export const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 export const state = {
   name: 'Bijou',

@@ -6,6 +6,7 @@
 // Without the API: Companion view, a doll-only layout for a small window.
 
 import { downloadBlob } from './neorgon-dom.js';
+import { setAltDoc } from './utils.js';
 
 export const canPopOut = () => 'documentPictureInPicture' in window;
 
@@ -38,11 +39,14 @@ export async function popOut({ stage, motion, title, onHost }) {
   pip.document.body.className = 'pip-body';
   const holder = document.createComment('stage');
   stage.before(holder);
+  pip.document.documentElement.lang = 'en';
   pip.document.body.append(stage);
+  setAltDoc(pip.document);
   motion.setHost(pip);
   onHost?.(true);
   pip.addEventListener('pagehide', () => {
     holder.replaceWith(stage);
+    setAltDoc(null);
     motion.setHost(window);
     pip = null;
     onHost?.(false);
