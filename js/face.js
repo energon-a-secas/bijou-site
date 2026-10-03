@@ -5,7 +5,8 @@
 
 import { f1, smooth, line, shape, fillOnly, stroke, darken, lighten, heart } from './paint.js';
 
-const EYE_C = { L: { x: 178, y: 205 }, R: { x: 222, y: 205 } };
+const EYE_C = { L: { x: 178, y: 206 }, R: { x: 222, y: 206 } };
+const EYE_K = 1.12;
 const LASH = '#2b1631';
 
 /** Named expressions. eyes, mouth, brows, blush, extra. */
@@ -84,8 +85,9 @@ function openEye(style, open, side, eye, uid, variant) {
     `<path d="${white}" fill="#fffafc"/>` +
     `<g clip-path="url(#${clip})"><g class="bj-iris" data-side="${side}">${iris}</g>` +
     `<path d="${smooth(up.map(p), false)}" fill="none" stroke="${darken(eye, 0.3)}" stroke-width="7" opacity=".22"/></g>` +
-    stroke(lashD, LASH, 3.6) + `<path d="${wing}" fill="${LASH}"/>` +
-    stroke(lower, LASH, 1.3, 'opacity=".8"') +
+    stroke(lashD, LASH, 4.2) + `<path d="${wing}" fill="${LASH}"/>` +
+    stroke(line([[up[3][0], up[3][1] - 1], [up[3][0] + 2.5, up[3][1] - 5.5]].map(p)) + line([[up[4][0] - 1.5, up[4][1] - 1], [up[4][0] + 4.5, up[4][1] - 6.5]].map(p)), LASH, 1.6) +
+    stroke(lower, LASH, 1.5, 'opacity=".85"') +
     (open > 0.6 ? stroke(crease, LASH, 1, 'opacity=".38"') : '');
 }
 
@@ -126,7 +128,9 @@ function eyePair(head, eye, expr, uid) {
       `<g class="bj-eye-shut">${closedEye(side)}</g>`;
   };
   const kinds = expr.eyes === 'wink' ? { L: 'open', R: 'joy' } : { L: expr.eyes, R: expr.eyes };
-  return one('L', kinds.L) + one('R', kinds.R);
+  // Big anime eyes: each eye is drawn at its table size and scaled about its centre.
+  const big = (side, svg) => { const c = EYE_C[side]; return `<g transform="translate(${c.x} ${c.y}) scale(${EYE_K}) translate(${-c.x} ${-c.y})">${svg}</g>`; };
+  return big('L', one('L', kinds.L)) + big('R', one('R', kinds.R));
 }
 
 // ── Mouths ──────────────────────────────────────────────────
@@ -170,14 +174,14 @@ export function browsPiece(hair, expr) {
   const pts = BROWS[expr.brows] || BROWS.neutral;
   const svg = ['L', 'R'].map((side) => {
     const s = side === 'L' ? -1 : 1;
-    return stroke(smooth(pts.map(toXY(EYE_C[side], s)), false), hair.line, 2.2, 'opacity=".85"');
+    return stroke(smooth(pts.map(([u, v]) => [u * 1.05, v * 1.1 - 2]).map(toXY(EYE_C[side], s)), false), hair.deep, 1.3, 'opacity=".6"');
   }).join('');
   return { bone: 'head', z: 452, depth: 1, key: 'brows', svg };
 }
 
 // ── Pieces ──────────────────────────────────────────────────
 
-const FACE_PTS = [[200, 132], [234, 140], [251, 170], [252, 198], [244, 222], [226, 240], [208, 248], [200, 249], [192, 248], [174, 240], [156, 222], [148, 198], [149, 170], [166, 140]];
+const FACE_PTS = [[200, 132], [234, 140], [251, 170], [252, 197], [242, 222], [223, 241], [207, 249], [200, 250], [193, 249], [177, 241], [158, 222], [148, 197], [149, 170], [166, 140]];
 
 export function facePieces(skin) {
   const face = smooth(FACE_PTS);

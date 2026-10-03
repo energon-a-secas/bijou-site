@@ -22,7 +22,11 @@ export const lighten = (hex, t = 0.3) => mix(hex, '#ffffff', t);
 /** Outline colour: a deep tint of the fill, the cel-shaded line-art look. */
 export const inkOf = (hex) => mix(hex, INK, 0.62);
 
-/** Smooth closed (or open) path through points, Catmull-Rom to cubic Bezier. */
+/**
+ * Smooth closed (or open) path through points, Catmull-Rom to cubic Bezier.
+ * A point written [x, y, 1] is a corner: the curve meets it with no tangent,
+ * which keeps a square neckline or a hem corner sharp inside a smooth outline.
+ */
 export function smooth(pts, closed = true, k = 0.5) {
   const n = pts.length;
   if (n < 3) return line(pts, closed);
@@ -31,8 +35,9 @@ export function smooth(pts, closed = true, k = 0.5) {
   const last = closed ? n : n - 1;
   for (let i = 0; i < last; i++) {
     const p0 = P(i - 1), p1 = P(i), p2 = P(i + 1), p3 = P(i + 2);
-    const c1x = p1[0] + ((p2[0] - p0[0]) * k) / 3, c1y = p1[1] + ((p2[1] - p0[1]) * k) / 3;
-    const c2x = p2[0] - ((p3[0] - p1[0]) * k) / 3, c2y = p2[1] - ((p3[1] - p1[1]) * k) / 3;
+    const a = p1[2] ? 0 : k, b = p2[2] ? 0 : k;
+    const c1x = p1[0] + ((p2[0] - p0[0]) * a) / 3, c1y = p1[1] + ((p2[1] - p0[1]) * a) / 3;
+    const c2x = p2[0] - ((p3[0] - p1[0]) * b) / 3, c2y = p2[1] - ((p3[1] - p1[1]) * b) / 3;
     d += `C${f1(c1x)} ${f1(c1y)} ${f1(c2x)} ${f1(c2y)} ${f1(p2[0])} ${f1(p2[1])}`;
   }
   return closed ? `${d}Z` : d;
@@ -41,9 +46,14 @@ export function smooth(pts, closed = true, k = 0.5) {
 export const line = (pts, closed = false) =>
   pts.map((p, i) => `${i ? 'L' : 'M'}${f1(p[0])} ${f1(p[1])}`).join('') + (closed ? 'Z' : '');
 
-/** Right-half points (x >= 200), top to bottom, mirrored into a full loop. */
+/**
+ * Right-half points (x >= 200), top to bottom, mirrored into a full loop.
+ * Points on the centre line are shared, not doubled.
+ */
 export function mirror(half, cx = 200) {
-  const left = half.slice().reverse().map(([x, y]) => [2 * cx - x, y]);
+  const left = half.slice().reverse()
+    .filter(([x], i, arr) => !((i === 0 || i === arr.length - 1) && Math.abs(x - cx) < 0.01))
+    .map(([x, y, c]) => [2 * cx - x, y, c]);
   return half.concat(left);
 }
 
@@ -54,6 +64,25 @@ export function shape(d, fill, stroke, sw = 2, extra = '') {
 export const fillOnly = (d, fill, extra = '') => `<path d="${d}" fill="${fill}"${extra ? ` ${extra}` : ''}/>`;
 export const stroke = (d, color, sw = 1.6, extra = '') =>
   `<path d="${d}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"${extra ? ` ${extra}` : ''}/>`;
+
+let celSeq = 0;
+/**
+ * Anime cel shading for any closed shape. Light comes from the top left, so a
+ * hard-edged shadow crescent sits on the bottom-right edges: the shape is
+ * darkened inside its own clip, then a copy shifted by (dx, dy) restores the lit
+ * part. A pattern fill stays visible in the shadow. dy = 0 for limb pieces, so
+ * two pieces that meet at a joint never seam.
+ */
+export function cel(d, fill, ink, sw = 2, o = {}) {
+  const id = `bj-cel-${++celSeq}`;
+  const dx = o.dx ?? -5, dy = o.dy ?? -3;
+  const dark = o.shadow
+    ? `<path d="${d}" fill="${o.shadow}"/>`
+    : `<path d="${d}" fill="#3a1446" opacity="${o.depth ?? 0.2}"/>`;
+  return `<clipPath id="${id}"><path d="${d}"/></clipPath><path d="${d}" fill="${fill}"/>` +
+    `<g clip-path="url(#${id})">${dark}<path d="${d}" fill="${fill}" transform="translate(${dx} ${dy})"/></g>` +
+    (sw ? `<path d="${d}" fill="none" stroke="${ink}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round"/>` : '');
+}
 
 /** Soft volume over any fill: light top-left, plum shadow bottom-right. */
 export const shade = (d) => `<path d="${d}" fill="url(#bj-shade)" pointer-events="none"/>`;

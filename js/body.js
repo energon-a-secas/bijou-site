@@ -3,13 +3,16 @@
 // is read from M, so height and build reshape the body and every garment that
 // reads the same landmarks.
 
-import { f1, smooth, line, shape, fillOnly, stroke, shade } from './paint.js';
+import { f1, smooth, line, shape, fillOnly, stroke, cel } from './paint.js';
 
 const SW = 2.2;
 
-/** Fill without an outline, then outline only the edges that should show. */
-function skinPart(bone, z, fill, outline, skin) {
-  return { bone, z, svg: fillOnly(fill, skin.base) + shade(fill) + outline.map((d) => stroke(d, skin.line, SW)).join('') };
+/**
+ * Fill with a cel shadow down the right side, then outline only the edges that
+ * should show. The shadow shifts sideways only, so joints never seam.
+ */
+function skinPart(bone, z, fill, outline, skin, dx = -4) {
+  return { bone, z, svg: cel(fill, skin.base, skin.line, 0, { dx, dy: 0, shadow: skin.shadow }) + outline.map((d) => stroke(d, skin.line, SW)).join('') };
 }
 
 function neck(M, skin) {
@@ -25,11 +28,11 @@ function neck(M, skin) {
 }
 
 function torso(M, skin) {
-  const ys = [M.shoulderY - 8, M.shoulderY - 2, M.shoulderY + 4, M.shoulderY + 12, M.shoulderY + 24, M.chestY, M.chestY + 18, M.waistY, M.waistY + 14];
+  const ys = [M.shoulderY - 8, M.shoulderY - 2, M.shoulderY + 4, M.shoulderY + 12, M.shoulderY + 24, M.chestY - 6, M.chestY + 4, M.chestY + 20, M.waistY, M.waistY + 14];
   const right = ys.map((y) => [200 + M.torsoHW(y), y]);
   const left = right.map(([x, y]) => [400 - x, y]);
   const fill = smooth(right.concat(left.slice().reverse()));
-  const side = (pts) => smooth(pts.slice(0, 8), false);
+  const side = (pts) => smooth(pts.slice(0, 9), false);
   const collar = `M${195} ${f1(M.shoulderY + 6)}Q${186} ${f1(M.shoulderY + 2)} ${179} ${f1(M.shoulderY + 4)}M205 ${f1(M.shoulderY + 6)}Q214 ${f1(M.shoulderY + 2)} 221 ${f1(M.shoulderY + 4)}`;
   const part = skinPart('spine', 150, fill, [side(right), side(left)], skin);
   part.svg += stroke(collar, skin.line, 1.1, 'opacity=".45"');

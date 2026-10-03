@@ -31,6 +31,7 @@ const hair = (id, name, base) => ({
 });
 
 export const HAIR = [
+  hair('ember', 'Ember', '#ec6a3d'),
   hair('sakura', 'Sakura', '#f6a6c6'),
   hair('lilac', 'Lilac', '#c5a3f0'),
   hair('silver', 'Silver', '#dcdeea'),
@@ -46,6 +47,7 @@ export const HAIR = [
 ];
 
 export const EYES = [
+  { id: 'copper', name: 'Copper', base: '#cf6a2a' },
   { id: 'amethyst', name: 'Amethyst', base: '#9b6bdc' },
   { id: 'sky', name: 'Sky', base: '#4aa3f0' },
   { id: 'emerald', name: 'Emerald', base: '#2fb27a' },
@@ -66,6 +68,7 @@ export const EYE_STYLES = [
 ];
 
 export const FRONT_STYLES = [
+  { id: 'messy', name: 'Tousled' },
   { id: 'wispy', name: 'Wispy' },
   { id: 'blunt', name: 'Blunt' },
   { id: 'swept', name: 'Swept' },
@@ -73,6 +76,7 @@ export const FRONT_STYLES = [
 ];
 
 export const BACK_STYLES = [
+  { id: 'wavybob', name: 'Wavy bob' },
   { id: 'twintails', name: 'Twin tails' },
   { id: 'long', name: 'Long' },
   { id: 'wavy', name: 'Waves' },
@@ -88,15 +92,18 @@ export const MOUTHS = [
 ];
 
 export const DEFAULT_HEAD = {
-  hair: 'sakura', front: 'wispy', back: 'twintails', ahoge: true,
-  eyes: 'amethyst', eyeStyle: 'sparkle', mouth: 'smile', blush: 1, freckles: false, mark: 'none',
+  hair: 'ember', front: 'messy', back: 'wavybob', ahoge: true,
+  eyes: 'copper', eyeStyle: 'sparkle', mouth: 'smile', blush: 1, freckles: false, mark: 'none',
 };
+
+const PINK_HEAD = { ...DEFAULT_HEAD, hair: 'sakura', front: 'wispy', back: 'twintails', eyes: 'amethyst' };
 
 export const DEFAULT_BODY = { height: 0.5, build: 0.5, skin: 'peach' };
 
 /** Ready-made heads. Applying one replaces the head, never the body or outfit. */
 export const HEADS = [
   { id: 'bijou', name: 'Bijou', head: { ...DEFAULT_HEAD } },
+  { id: 'sakura', name: 'Sakura', head: { ...PINK_HEAD } },
   { id: 'hime', name: 'Hime', head: { ...DEFAULT_HEAD, hair: 'raven', front: 'blunt', back: 'long', ahoge: false, eyes: 'ruby', eyeStyle: 'soft', mouth: 'small' } },
   { id: 'sunny', name: 'Sunny', head: { ...DEFAULT_HEAD, hair: 'honey', front: 'swept', back: 'ponytail', eyes: 'sky', eyeStyle: 'sparkle', freckles: true } },
   { id: 'luna', name: 'Luna', head: { ...DEFAULT_HEAD, hair: 'silver', front: 'split', back: 'wavy', ahoge: false, eyes: 'gold', eyeStyle: 'cat', mouth: 'cat', mark: 'R' } },

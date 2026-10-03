@@ -7,6 +7,9 @@ export const VIEW = { w: 400, h: 820, cx: 200, ground: 790 };
 /** Head art is drawn with the chin here; the head bone shifts it onto the body. */
 export const HEAD_CHIN = 244;
 
+/** The head is drawn large and scaled onto the body: about six and a half heads tall. */
+export const HEAD_SCALE = 0.9;
+
 const clamp01 = (n) => Math.min(1, Math.max(0, Number.isFinite(n) ? n : 0.5));
 
 /** Piecewise-linear lookup over [[y, value], ...] sorted by y. */
@@ -24,13 +27,13 @@ function lerpTable(table, y) {
 
 /** body: { height: 0..1, build: 0..1 }. Returns the frozen landmark object M. */
 export function measure(body = {}) {
-  const leg = 0.93 + 0.14 * clamp01(body.height);
+  const leg = 0.94 + 0.12 * clamp01(body.height);
   const tor = 0.97 + 0.06 * clamp01(body.height);
   const w = 0.9 + 0.2 * clamp01(body.build);
   const ground = VIEW.ground;
   const ankleY = ground - 36;
-  const shin = 156 * leg;
-  const thigh = 160 * leg;
+  const shin = 160 * leg;
+  const thigh = 168 * leg;
   const kneeY = ankleY - shin;
   const hipY = kneeY - thigh;
   const pelvisY = hipY - 8;
@@ -38,32 +41,33 @@ export function measure(body = {}) {
   const chestY = waistY - 64 * tor;
   const shoulderY = chestY - 42 * tor;
   const chinY = shoulderY - 24;
-  const upperArm = 84 * tor;
-  const foreArm = 78 * tor;
+  const upperArm = 86 * tor;
+  const foreArm = 80 * tor;
 
+  // A young adult's silhouette: shoulders, a soft chest line, waist, hips.
   const torso = [
-    [shoulderY - 8, 9], [shoulderY - 2, 22], [shoulderY + 4, 37], [shoulderY + 12, 39],
-    [shoulderY + 24, 33 * (0.95 + 0.05 * w)], [chestY, 31 * w], [chestY + 18, 28 * w],
-    [waistY, 24 * w], [waistY + 28, 30 * w], [hipY - 4, 33 * w], [hipY + 14, 33 * w],
+    [shoulderY - 8, 10], [shoulderY - 2, 24], [shoulderY + 4, 39], [shoulderY + 12, 41],
+    [shoulderY + 24, 35 * (0.95 + 0.05 * w)], [chestY - 6, 34 * w], [chestY + 4, 33.5 * w], [chestY + 20, 28.5 * w],
+    [waistY, 25 * w], [waistY + 26, 33 * w], [hipY - 4, 38 * w], [hipY + 14, 37 * w],
   ];
 
   const side = (fn) => ({ L: fn(-1), R: fn(1) });
-  const shoulder = side((s) => ({ x: 200 + s * 41, y: shoulderY + 7 }));
-  const elbow = side((s) => ({ x: 200 + s * 41, y: shoulderY + 7 + upperArm }));
-  const wrist = side((s) => ({ x: 200 + s * 41, y: shoulderY + 7 + upperArm + foreArm }));
-  const hip = side((s) => ({ x: 200 + s * 17 * w, y: hipY }));
-  const knee = side((s) => ({ x: 200 + s * (12.5 + 2 * w), y: kneeY }));
-  const ankle = side((s) => ({ x: 200 + s * (12 + 1.5 * w), y: ankleY }));
+  const shoulder = side((s) => ({ x: 200 + s * 43, y: shoulderY + 7 }));
+  const elbow = side((s) => ({ x: 200 + s * 43, y: shoulderY + 7 + upperArm }));
+  const wrist = side((s) => ({ x: 200 + s * 43, y: shoulderY + 7 + upperArm + foreArm }));
+  const hip = side((s) => ({ x: 200 + s * 19.5 * w, y: hipY }));
+  const knee = side((s) => ({ x: 200 + s * (14 + 2 * w), y: kneeY }));
+  const ankle = side((s) => ({ x: 200 + s * (13 + 1.5 * w), y: ankleY }));
 
   return Object.freeze({
     ground, ankleY, kneeY, hipY, pelvisY, waistY, chestY, shoulderY, chinY,
-    headTop: chinY - 116, headDY: chinY - HEAD_CHIN, w, leg, tor,
+    headTop: chinY - 116 * HEAD_SCALE, headDY: chinY - HEAD_CHIN, w, leg, tor,
     upperArm, foreArm, thigh, shin,
     shoulder, elbow, wrist, hip, knee, ankle,
     torsoHW: (y) => lerpTable(torso, y),
-    thighHW: (t) => (16 - 6.5 * t) * (0.75 + 0.25 * w),           // t: 0 hip .. 1 knee
-    shinHW: (t) => (t < 0.3 ? 9.6 + 1.6 * (t / 0.3) : 11.2 - 5.4 * ((t - 0.3) / 0.7)) * (0.8 + 0.2 * w),
-    armHW: (t) => (8.6 - 3.4 * t) * (0.85 + 0.15 * w),             // t: 0 shoulder .. 1 wrist
+    thighHW: (t) => (21 - 10.5 * t) * (0.8 + 0.2 * w),            // t: 0 hip .. 1 knee
+    shinHW: (t) => (t < 0.28 ? 10.5 + 1.9 * (t / 0.28) : 12.4 - 6.4 * ((t - 0.28) / 0.72)) * (0.85 + 0.15 * w),
+    armHW: (t) => (10 - 4.4 * t) * (0.88 + 0.12 * w),             // t: 0 shoulder .. 1 wrist
   });
 }
 
@@ -143,8 +147,14 @@ export function solve(M, P, frame) {
     const f = frame.bones[name] || {};
     const deg = side ? -side * (f.a || 0) : (f.a || 0);
     const shift = name === 'head' ? { x: 0, y: M.headDY } : null;
-    let m = local(P[name], deg, f.sx ?? 1, f.sy ?? 1, shift);
-    if (name === 'root') m = mul([1, 0, 0, 1, frame.root.x || 0, frame.root.y || 0], m);
+    const hs = name === 'head' ? HEAD_SCALE : 1;
+    let m = local(P[name], deg, (f.sx ?? 1) * hs, (f.sy ?? 1) * hs, shift);
+    if (name === 'root') {
+      // Spin and squash happen about the feet, so a landing compresses toward the floor.
+      const r = frame.root;
+      const sq = local({ x: 200, y: M.ground }, 0, r.sx ?? 1, r.sy ?? 1, null);
+      m = mul([1, 0, 0, 1, r.x || 0, r.y || 0], mul(sq, m));
+    }
     out[name] = parent ? mul(out[parent], m) : m;
   }
   return out;
@@ -171,13 +181,13 @@ const outward = (s, dx, dy) => deg(Math.atan2(s * dx, dy));
 export function landmark(M, name, s) {
   switch (name) {
     case 'chin': return { x: 200, y: M.chinY };
-    case 'cheek': return { x: 200 + s * 38, y: M.chinY - 20 };
+    case 'cheek': return { x: 200 + s * 34, y: M.chinY - 18 };
     case 'crown': return { x: 200, y: M.headTop };
     case 'chest': return { x: 200 + s * 8, y: M.chestY };
     case 'navel': return { x: 200, y: M.waistY + 14 };
     case 'waist': return { x: 200 + s * M.torsoHW(M.waistY), y: M.waistY };
     case 'hip': return { x: 200 + s * M.torsoHW(M.hipY), y: M.hipY };
-    case 'shoulder': return { x: 200 + s * 41, y: M.shoulderY };
+    case 'shoulder': return { x: 200 + s * 43, y: M.shoulderY };
     default: return { x: 200, y: M.chestY };
   }
 }

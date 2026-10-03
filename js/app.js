@@ -1,15 +1,20 @@
-// ── Entry point ──────────────────────────────────────────────
-// Import modules and initialize the app.
-// Keep this file under 50 lines: it only wires things together.
+// Temporary harness for visual checks of the rig and wardrobe.
+import { createDoll } from './doll.js';
+import { createMotion } from './motion.js';
+import { DEFAULT_BODY, DEFAULT_HEAD } from './looks.js';
+import { STARTER_OUTFIT } from './catalog.js';
 
-import { state, loadSaved } from './state.js';
-import { render } from './render.js';
-import { bindEvents } from './events.js';
-
-function init() {
-  loadSaved(state);
-  render(state);
-  bindEvents(state);
+const q = new URLSearchParams(location.search);
+const doll = createDoll(document.getElementById('doll'));
+const motion = createMotion(doll);
+const outfit = q.get('outfit') ? Object.fromEntries(q.get('outfit').split(',').map((kv) => kv.split(':'))) : STARTER_OUTFIT;
+doll.build({ body: { ...DEFAULT_BODY }, head: { ...DEFAULT_HEAD }, outfit });
+motion.setPose(q.get('pose') || 'stand');
+motion.start();
+window.bj = { doll, motion, DEFAULT_BODY, DEFAULT_HEAD };
+if (q.get('zoom')) {
+  const svg = document.getElementById('doll');
+  svg.setAttribute('viewBox', q.get('zoom').split(',').join(' '));
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  Object.assign(svg.style, { height: '100%', bottom: '0' });
 }
-
-init();
