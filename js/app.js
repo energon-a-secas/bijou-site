@@ -1,20 +1,42 @@
-// Temporary harness for visual checks of the rig and wardrobe.
+// ── Entry point ──────────────────────────────────────────────
+// Wires the doll, her motion and her behaviour to the page. Keep under 50 lines.
+
+import { state, loadSaved, save, dollConfig } from './state.js';
 import { createDoll } from './doll.js';
 import { createMotion } from './motion.js';
-import { DEFAULT_BODY, DEFAULT_HEAD } from './looks.js';
-import { STARTER_OUTFIT } from './catalog.js';
+import { createFx } from './fx.js';
+import { createBehavior } from './behavior.js';
+import { bindDoll } from './interact.js';
+import { visit } from './wardrobe.js';
+import { setCompanionView } from './companion.js';
+import { bindEvents, makeHooks, renderAll } from './events.js';
+import { $ } from './utils.js';
 
-const q = new URLSearchParams(location.search);
-const doll = createDoll(document.getElementById('doll'));
-const motion = createMotion(doll);
-const outfit = q.get('outfit') ? Object.fromEntries(q.get('outfit').split(',').map((kv) => kv.split(':'))) : STARTER_OUTFIT;
-doll.build({ body: { ...DEFAULT_BODY }, head: { ...DEFAULT_HEAD }, outfit });
-motion.setPose(q.get('pose') || 'stand');
-motion.start();
-window.bj = { doll, motion, DEFAULT_BODY, DEFAULT_HEAD };
-if (q.get('zoom')) {
-  const svg = document.getElementById('doll');
-  svg.setAttribute('viewBox', q.get('zoom').split(',').join(' '));
-  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-  Object.assign(svg.style, { height: '100%', bottom: '0' });
+function init() {
+  loadSaved(state);
+  const info = visit(state);
+  const stage = $('stage');
+  const doll = createDoll($('doll'));
+  const fx = createFx({ stage, layer: $('fx'), bubble: $('bubble'), live: $('speech'), doll });
+  let behavior = null;
+  const motion = createMotion(doll, {
+    bounds() {
+      const k = Math.min(stage.clientWidth / 400, (stage.clientHeight * 0.95) / 820) || 1;
+      const half = stage.clientWidth / k / 2 - 70;
+      return { minX: -Math.max(0, half), maxX: Math.max(0, half) };
+    },
+    onLand: () => behavior?.landed(),
+    onFrame: () => fx.place(),
+  });
+  doll.build(dollConfig(state));
+  behavior = createBehavior({ state, doll, motion, fx, hooks: makeHooks() });
+  bindDoll({ stage, doll, motion, behavior });
+  bindEvents({ doll, motion, behavior, fx });
+  if (new URLSearchParams(location.search).get('view') === 'companion') setCompanionView(true);
+  renderAll();
+  motion.start();
+  behavior.start(info);
+  save(state, true);
 }
+
+init();

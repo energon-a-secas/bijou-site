@@ -31,6 +31,7 @@ function pouf(M) {
 export function createDoll(svg) {
   const uid = `d${++seq}`;
   svg.setAttribute('viewBox', `0 0 ${VIEW.w} ${VIEW.h}`);
+  svg.classList.add('bj-svg');
   svg.innerHTML = `<defs>${SHARED_DEFS}</defs><defs class="bj-dyn"></defs>` +
     `<ellipse class="bj-floor" cx="200" cy="${VIEW.ground}" rx="78" ry="11" fill="url(#bj-floor)"/>` +
     '<g class="bj-prop"></g><g class="bj-parts"></g>';

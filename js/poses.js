@@ -51,7 +51,7 @@ export const POSES = Object.fromEntries([
     loop: (t) => ({ root: sway(1.2, 1.1)(t) }),
   }),
   pose('peace', 'Peace', {
-    arms: { L: { upper: 10, fore: -6 }, R: { to: ['cheek', 16, -12], bend: 'out' } },
+    arms: { L: { upper: 10, fore: -6 }, R: { to: ['cheek', 36, -22], bend: 'in' } },
     band: { R: 'front' }, hands: { R: 'peace' }, head: 6, expr: 'wink',
   }),
   pose('hips', 'Hands on hips', {
@@ -70,7 +70,7 @@ export const POSES = Object.fromEntries([
     hands: { L: 'curl', R: 'curl' }, head: 5, expr: 'happy',
   }),
   pose('think', 'Think', {
-    arms: { R: { to: ['chin', 6, 8], bend: 'out' } }, band: { R: 'front' }, hands: { R: 'point' },
+    arms: { R: { to: ['chin', 16, 16], bend: 'out' } }, band: { R: 'front' }, hands: { R: 'point' },
     head: -5, expr: 'curious', look: [0.5, -0.5],
   }),
   pose('cheer', 'Cheer', {
