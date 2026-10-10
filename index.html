@@ -9,7 +9,7 @@
        package CDN: a Convex deployment adds its https and wss URLs to connect-src, and sign-in
        adds the CSP table in packages/neorgon-ui/auth/README.md. frame-ancestors, report-uri and
        sandbox are ignored in a meta tag, so they are left out. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-na6phygP/tfoCIp4oBeQgGJJpQsZob/udrLum+20QTI=' https://gc.zgo.at https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.neorgon.org/v1.0.0/; img-src 'self' data: https://neorgon.goatcounter.com; font-src 'self'; connect-src 'self' https://neorgon.goatcounter.com https://cloudflareinsights.com; manifest-src 'self'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-na6phygP/tfoCIp4oBeQgGJJpQsZob/udrLum+20QTI=' https://gc.zgo.at https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.neorgon.org/v1.0.0/; img-src 'self' data: blob: https://neorgon.goatcounter.com; font-src 'self'; connect-src 'self' blob: https://neorgon.goatcounter.com https://cloudflareinsights.com; manifest-src 'self'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
@@ -30,7 +30,7 @@
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://bijou.neorgon.com/">
   <meta property="og:locale" content="en_US">
-  <meta name="theme-color" content="#040714">
+  <meta name="theme-color" content="#241b23">
   <meta property="og:image" content="https://bijou.neorgon.com/og-preview.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -91,7 +91,7 @@
         <img src="energon-classic-logo.png" class="header-logo-img" alt="">
         <div class="header-title-wrap">
           <h1>Bijou</h1>
-          <div class="header-subtitle">Dress-up doll and desktop companion</div>
+          <div class="header-subtitle">Your little anime companion</div>
         </div>
       </a>
     </div>
@@ -146,9 +146,15 @@
   <!-- template:main -->
   <main id="main" tabindex="-1">
     <div class="bijou" id="app">
+      <div class="atelier-intro">
+        <div><p class="eyebrow">THE BIJOU ATELIER</p><h2>A character of your own.</h2></div>
+        <p>Dress her. Get to know her. Keep her close.</p>
+      </div>
       <section class="stage-col" aria-label="Bijou's room">
         <div class="stage" id="stage">
           <svg class="backdrop" id="backdrop" aria-hidden="true" preserveAspectRatio="xMidYMax slice"></svg>
+          <div class="stage-heading"><span class="eyebrow">HELLO, I'M</span><h2 id="stageName">Bijou</h2><p id="stageLook">Crimson ribbon</p></div>
+          <button class="room-switch" type="button" id="roomSwitch" aria-label="Change room">Atelier <span aria-hidden="true">↻</span></button>
           <svg class="doll" id="doll" role="img" aria-label="Bijou" preserveAspectRatio="xMidYMax meet"></svg>
           <div class="fx" id="fx" aria-hidden="true"></div>
           <p class="bubble" id="bubble" aria-hidden="true" hidden></p>
@@ -158,30 +164,37 @@
             <span class="request__progress" id="requestProgress"></span>
           </div>
           <p class="drop-hint" id="dropHint" hidden>Let go to dress her</p>
+          <p class="stage-note"><span aria-hidden="true">✧</span> A head pat goes a long way.</p>
           <div class="stage-tools">
-            <button class="chip" type="button" data-act="twirl">Twirl</button>
-            <button class="chip" type="button" data-act="pat">Pat</button>
-            <button class="chip" type="button" data-act="ask">What would you like?</button>
+            <button class="chip" type="button" data-act="twirl"><span aria-hidden="true">↻</span> Twirl</button>
+            <button class="chip" type="button" data-act="pat"><span aria-hidden="true">♡</span> Head pat</button>
+            <button class="chip" type="button" data-act="ask">Make a wish</button>
+            <button class="chip" type="button" data-act="shape">Shape</button>
           </div>
         </div>
         <div class="wearing">
-          <h2 class="wearing__title" id="wearingTitle">Wearing</h2>
+          <h2 class="wearing__title" id="wearingTitle">On her now</h2>
+          <button class="chip wearing__clear" id="clearOutfit" type="button">Clear outfit</button>
           <ul class="wearing__list" id="wearing" aria-labelledby="wearingTitle"></ul>
         </div>
         <p class="sr-only" id="speech" aria-live="polite"></p>
       </section>
 
       <aside class="panel" aria-label="Wardrobe and styling">
+        <div class="panel-heading"><div><p class="eyebrow">MAKE IT HERS</p><h2>The dressing room</h2></div><span aria-hidden="true">✧</span></div>
+        <div class="signature-looks"><h3>Start with a look</h3><div class="collections" id="collections" role="group" aria-label="Signature looks"></div><p>Choose a look, then make it your own.</p></div>
         <div class="tabs" role="tablist" aria-label="Panels">
           <button class="tab" role="tab" type="button" id="tab-wardrobe" aria-controls="panel-wardrobe" aria-selected="true">Wardrobe</button>
           <button class="tab" role="tab" type="button" id="tab-style" aria-controls="panel-style" aria-selected="false" tabindex="-1">Style</button>
+          <button class="tab" role="tab" type="button" id="tab-body" aria-controls="panel-body" aria-selected="false" tabindex="-1">Body</button>
           <button class="tab" role="tab" type="button" id="tab-poses" aria-controls="panel-poses" aria-selected="false" tabindex="-1">Poses</button>
           <button class="tab" role="tab" type="button" id="tab-looks" aria-controls="panel-looks" aria-selected="false" tabindex="-1">Looks</button>
         </div>
 
         <section class="tabpanel" role="tabpanel" id="panel-wardrobe" aria-labelledby="tab-wardrobe">
+          <div id="clothingControls"></div>
           <div class="chips" id="categories" role="group" aria-label="Categories"></div>
-          <p class="panel__hint" id="wardrobeHint">Drag a piece onto Bijou, or press it to put it on. Press a worn piece to take it off.</p>
+          <p class="panel__hint" id="wardrobeHint">Click or drag a piece to dress her. Click it again to remove.</p>
           <ul class="grid" id="items"></ul>
         </section>
 
@@ -191,6 +204,11 @@
             <input class="input" id="dollName" maxlength="20" autocomplete="off" spellcheck="false">
           </div>
           <div id="styleControls" class="stack stack--tight"></div>
+        </section>
+
+        <section class="tabpanel" role="tabpanel" id="panel-body" aria-labelledby="tab-body" hidden>
+          <p class="panel__hint"><a href="dev/model-studio.html">Try the new model studio →</a> More body sizes, adult appearances, face styles and fitted clothes for the Meshy studies.</p>
+          <div id="bodyControls" class="stack stack--tight"></div>
         </section>
 
         <section class="tabpanel" role="tabpanel" id="panel-poses" aria-labelledby="tab-poses" hidden>
@@ -203,7 +221,7 @@
 
         <section class="tabpanel" role="tabpanel" id="panel-looks" aria-labelledby="tab-looks" hidden>
           <h2 class="panel__title">Saved looks</h2>
-          <p class="panel__hint">A look keeps her face, hair, body, outfit and room together.</p>
+          <p class="panel__hint">A look keeps her face, hair, body, tailored clothes, rendering style and room together.</p>
           <form class="look-form" id="lookForm">
             <label class="sr-only" for="lookName">Look name</label>
             <input class="input" id="lookName" maxlength="24" placeholder="Name this look" autocomplete="off">

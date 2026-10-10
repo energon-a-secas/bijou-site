@@ -3,7 +3,9 @@
 // Tails and long hair ride spring bones (tailL/R/C, hairBack, ahoge), which the
 // motion loop swings, so the art here is drawn hanging at rest.
 
-import { f1, smooth, line, shape, fillOnly, stroke, shade, bow, cel } from './paint.js';
+import { f1, smooth, line, shape, fillOnly, stroke, bow, cel } from './paint.js';
+
+let hairSeq = 0;
 
 /**
  * A claw-shaped lock: wide at the root, curving to a sharp tip. bend pushes the
@@ -22,7 +24,7 @@ function lockD(x0, y0, x1, y1, w, bend = 0) {
 }
 
 /** Cel-shaded locks: a darker crescent on each lock's lower-right edge. */
-const locks = (list, hair, sw = 1.8) => list.map((l) => cel(lockD(...l), hair.base, hair.line, sw, { dx: -3.5, dy: -3, shadow: hair.shadow })).join('');
+const locks = (list, hair, sw = 1.1) => list.map((l) => cel(lockD(...l), hair.fill || hair.base, hair.line, sw, { dx: -2.5, dy: -2, shadow: hair.shadow })).join('');
 
 /** Strand lines: a few soft strokes that read as hair texture. */
 const strands = (d, hair) => stroke(d, hair.line, 1.1, 'opacity=".32"');
@@ -38,19 +40,28 @@ function backCap(hair, bottom = 264) {
 
 /** A wavy bob: a dark inner layer with flipped ends, and lit outer locks over it. */
 function wavyBob(hair) {
-  const R = [[238, 114], [264, 140], [273, 178], [269, 212], [277, 240], [290, 268, 1], [271, 262], [265, 290, 1], [249, 272], [233, 287, 1], [220, 266], [200, 272]];
-  const back = R.concat(R.slice(0, -1).reverse().map(([x, y, c]) => [400 - x, y, c]));
-  const inner = cel(smooth([[200, 110], ...back]), hair.shadow, hair.line, 2, { dx: -6, dy: -4, shadow: hair.deep });
-  const outer = [
-    [250, 146, 284, 264, 30, 12], [244, 166, 262, 288, 24, 6], [150, 146, 116, 264, 30, -12], [156, 166, 138, 288, 24, -6],
-  ];
+  const silhouette = 'M200 108C236 105 259 130 265 169C272 197 264 215 276 235Q284 249 274 262Q269 268 276 268Q259 276 254 260Q262 283 244 282Q232 284 231 271Q216 282 200 274Q179 285 170 271Q153 285 145 271Q131 275 130 259Q120 247 130 228C141 206 129 181 140 147C149 121 170 108 200 108Z';
+  const inner = cel(silhouette, hair.fill, hair.line, 1.5, { dx: -9, dy: -4, shadow: hair.deep });
+  const waves = [
+    'M251 153C266 179 251 207 263 236Q276 255 264 262Q256 262 254 253C266 250 249 234 248 219C247 195 255 180 251 153Z',
+    'M148 154C133 181 146 200 137 230Q125 251 141 262Q133 248 144 235C155 214 143 195 151 174Z',
+    'M247 223Q264 267 246 277Q254 265 243 250Z',
+    'M151 231Q139 271 158 274Q148 264 159 244Z',
+  ].map(d => cel(d, hair.fill, hair.line, 1, { dx: -3, dy: 0, shadow: hair.shadow })).join('');
   return [
     { bone: 'head', z: 12, depth: -0.6, svg: inner },
-    { bone: 'head', z: 13, depth: -0.4, svg: locks(outer, hair, 2) },
+    { bone: 'head', z: 13, depth: -0.4, svg: waves + strands('M146 171Q138 199 147 220Q151 239 142 254M258 173Q267 199 258 217M244 249Q243 268 249 274M157 244Q158 260 153 265', hair) },
   ];
 }
 
 function longBack(hair, wavy) {
+  if (!wavy) {
+    const d = 'M145 170C132 244 148 303 130 365Q124 393 106 407Q128 412 143 388Q133 419 119 428Q152 430 161 403Q158 430 146 443Q169 436 176 416Q184 441 199 434Q211 443 221 416Q231 441 254 443Q241 427 239 403Q252 430 281 428Q266 415 257 391Q277 415 294 407Q277 393 270 365C252 307 269 245 254 170Z';
+    const art = cel(d, hair.fill, hair.line, 1.5, { dx: -6, dy: 0, shadow: hair.deep }) +
+      strands('M151 230C154 306 142 370 129 399M164 257Q168 369 152 407M182 270Q180 375 188 413M238 243Q229 353 253 410M253 235Q248 363 271 398M217 269Q212 365 226 413', hair) +
+      stroke('M151 254Q154 302 146 338M247 267Q245 318 253 352', hair.light, 2.5, 'opacity=".36"');
+    return { bone: 'hairBack', z: 12, depth: -0.6, svg: art };
+  }
   const R = wavy
     ? [[262, 196], [272, 236], [264, 278], [280, 320], [268, 362], [282, 402], [266, 432], [254, 414], [244, 440], [230, 418], [216, 442], [204, 422]]
     : [[262, 196], [270, 240], [274, 300], [271, 360], [266, 410], [252, 396], [242, 424], [228, 404], [214, 428], [204, 410]];
@@ -143,19 +154,33 @@ function himeLocks(hair) {
   return shape(lockL, hair.base, hair.line, 1.9) + shape(lockR, hair.base, hair.line, 1.9);
 }
 
+/** A continuous swept fringe with overlapping tapered strands, like inked anime art. */
+function illustratedFringe(hair) {
+  const d = 'M141 200C135 176 139 145 155 127C171 107 203 103 225 113C252 122 264 146 263 172L259 211Q250 195 244 178Q240 167 232 157Q234 182 246 198Q228 190 218 174Q216 191 224 203Q200 190 191 169Q190 187 198 197Q176 183 174 164Q166 184 159 200L158 176Q149 189 141 200Z';
+  let art = cel(d, hair.fill, hair.line, 1.45, { dx: -4, dy: -3, shadow: hair.shadow });
+  art += stroke('M194 116C181 127 177 147 183 166Q186 178 193 188M202 116C198 139 207 164 218 182M211 119Q222 133 228 156M230 127Q248 143 251 165M171 131Q158 153 158 176M151 151L146 176', hair.line, 1.05, 'opacity=".7"');
+  art += stroke('M188 119Q178 130 175 145M201 121Q198 139 202 153M217 126Q228 137 232 149M164 141L160 153', hair.light, 1.4, 'opacity=".48"');
+  art += fillOnly('M151 154Q161 143 172 143L170 150Q159 151 149 165ZM178 143Q186 139 192 140L192 147L178 151ZM200 140Q207 140 214 142L217 150L201 147ZM224 146Q239 151 246 165L241 166Q234 156 226 155Z', hair.light, 'opacity=".25"');
+  return art;
+}
+
 export function hairPieces(head, hair) {
+  const id = `bj-hair-${++hairSeq}`;
+  const defs = `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="160" y1="106" x2="230" y2="286"><stop offset="0" stop-color="${hair.base}"/><stop offset=".2" stop-color="${hair.light}"/><stop offset=".36" stop-color="${hair.base}"/><stop offset="1" stop-color="${hair.shadow}"/></linearGradient></defs>`;
+  hair = { ...hair, fill: `url(#${id})` };
   const out = [];
-  const back = head.back;
+  const back = { pixie: 'bob', halfup: 'long', braid: 'ponytail' }[head.back] || head.back;
   const short = back === 'bob' || back === 'buns' || back === 'wavybob';
   if (back === 'wavybob') out.push(...wavyBob(hair));
   else out.push({ bone: 'head', z: 12, depth: -0.6, svg: backCap(hair, short ? 274 : 264) });
   if (back === 'long' || back === 'wavy') out.push(longBack(hair, back === 'wavy'));
   if (back === 'twintails') out.push(...tail(hair, -1, 'L'), ...tail(hair, 1, 'R'));
   if (back === 'ponytail') out.push(ponytail(hair));
+  if (head.back === 'halfup') out.push(ponytail(hair));
   if (back === 'buns') out.push(buns(hair));
 
   // Shadow the bangs cast on the forehead; it shows between wispy locks.
-  out.push({ bone: 'head', z: 405, depth: 0.85, svg: fillOnly('M150 182Q160 158 200 150Q240 158 250 182L250 198Q200 186 150 198Z', hair.deep, 'opacity=".28"') });
+  out.push({ bone: 'head', z: 405, depth: 0.85, svg: fillOnly('M150 175Q160 153 200 145Q240 153 250 175L247 193Q227 177 216 182L202 179L196 185L175 174L154 195Z', hair.shadow, 'opacity=".19"') });
 
   const sideSet = back === 'wavybob' ? SIDE_LOCKS.wavy : short ? SIDE_LOCKS.short : SIDE_LOCKS.default;
   out.push({ bone: 'head', z: 440, depth: 0.55, svg: head.front === 'blunt' ? himeLocks(hair) : locks(sideSet, hair) });
@@ -163,15 +188,16 @@ export function hairPieces(head, hair) {
   const cap = smooth(FRONT_CAP);
   // Locks first, then the cap over their roots, so strand lines start where the cap ends.
   let front = head.front === 'blunt' ? bluntBangs(hair) : locks(BANGS[head.front] || BANGS.wispy, hair);
-  front += cel(cap, hair.base, hair.line, 0, { dx: -4, dy: -7, shadow: hair.shadow }) + stroke(smooth(FRONT_CAP.slice(0, 9), false), hair.line, 2);
+  front += cel(cap, hair.fill, hair.line, 0, { dx: -4, dy: -7, shadow: hair.shadow }) + stroke(smooth(FRONT_CAP.slice(0, 9), false), hair.line, 1.4);
   // Gloss: two short arcs on the crown instead of a solid ring, which read as a headband.
   front += stroke('M168 130Q184 121 197 121M206 121Q221 121 234 130', hair.light, 2.4, 'opacity=".75"') +
     stroke('M176 136Q188 130 196 130M207 130Q218 130 228 136', hair.light, 1.4, 'opacity=".45"');
-  out.push({ bone: 'head', z: 450, depth: 0.7, svg: front });
+  out.push({ bone: 'head', z: 450, depth: 0.7, svg: head.front === 'messy' ? illustratedFringe(hair) : front });
 
   if (head.ahoge) {
     out.push({ bone: 'ahoge', z: 451, depth: 0.7, key: 'ahoge', svg: shape('M205 122C198 102 212 92 223 97C212 98 208 106 211 122Z', hair.base, hair.line, 1.7) });
   }
+  out[0].svg = defs + out[0].svg;
   return out;
 }
 

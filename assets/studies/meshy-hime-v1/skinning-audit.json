@@ -1,0 +1,13 @@
+{
+  "primitives": [
+    {
+      "vertices": 96655,
+      "joint_count": 24,
+      "max_weight_sum_error": 1.7881393432617188e-07,
+      "zero_weight_vertices": 0,
+      "max_joint_index": 23
+    }
+  ],
+  "valid_weights": true,
+  "scope": "Finite positions, valid joint indices and normalized nonnegative weights; not proof of good deformation."
+}

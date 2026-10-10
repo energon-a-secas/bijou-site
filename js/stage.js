@@ -3,6 +3,7 @@
 // background image (xMidYMax slice). A time-of-day wash sits over each.
 
 export const BACKDROPS = [
+  { id: 'atelier', name: 'Atelier' },
   { id: 'dreamy', name: 'Dreamy' },
   { id: 'bedroom', name: 'Bedroom' },
   { id: 'beach', name: 'Beach' },
@@ -17,6 +18,20 @@ function stars(color = '#fff', n = STARS.length) {
 }
 
 const ROOMS = {
+  atelier: () => `
+    <defs>
+      <linearGradient id="bg-atelier" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7f1e9"/><stop offset="1" stop-color="#ece1d8"/></linearGradient>
+      <pattern id="bg-grain" width="8" height="8" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".55" fill="#ac8a7c" opacity=".14"/></pattern>
+    </defs>
+    <rect width="1000" height="820" fill="url(#bg-atelier)"/><rect width="1000" height="820" fill="url(#bg-grain)"/>
+    <path d="M264 725V314A236 236 0 0 1 736 314V725" fill="#f0e4dc" stroke="#cdb6a7" stroke-width="1"/>
+    <path d="M281 725V314A219 219 0 0 1 719 314V725" fill="none" stroke="#fbf7ee" stroke-width="2"/>
+    <circle cx="500" cy="322" r="177" fill="#e5cac3" opacity=".5"/>
+    <path d="M0 723H1000" stroke="#d2bfb0" stroke-width="1"/>
+    <ellipse cx="500" cy="787" rx="187" ry="24" fill="#c9b5a8" opacity=".28"/>
+    <ellipse cx="500" cy="773" rx="176" ry="22" fill="#e1d2c5" stroke="#c7b3a2" stroke-width="1"/>
+    <ellipse cx="500" cy="768" rx="176" ry="19" fill="#f7f0e7" stroke="#cbb6a4" stroke-width="1"/>
+    <g fill="none" stroke="#ba9b7c" stroke-width="1.3"><path d="M209 247v22m-11-11h22M777 470v16m-8-8h16"/><path d="M772 203l5 10-5 10-5-10ZM220 542l4 8-4 8-4-8Z"/></g>`,
   dreamy: () => `
     <defs><linearGradient id="bg-dreamy" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a1f52"/><stop offset=".55" stop-color="#7a58b0"/><stop offset="1" stop-color="#f0c0e6"/></linearGradient></defs>
     <rect width="1000" height="820" fill="url(#bg-dreamy)"/>${stars()}
@@ -57,5 +72,10 @@ function wash(hour) {
 
 export function drawBackdrop(svg, id, hour = new Date().getHours()) {
   svg.setAttribute('viewBox', '0 0 1000 820');
-  svg.innerHTML = (ROOMS[id] || ROOMS.dreamy)() + wash(hour);
+  svg.innerHTML = (ROOMS[id] || ROOMS.atelier)() + (id === 'atelier' ? '' : wash(hour));
+  if (svg.parentElement?.classList.contains('stage')) {
+    svg.parentElement.dataset.room = id;
+    const button = svg.parentElement.querySelector('#roomSwitch');
+    if (button) button.innerHTML = `${(BACKDROPS.find(b => b.id === id) || BACKDROPS[0]).name} <span aria-hidden="true">↻</span>`;
+  }
 }

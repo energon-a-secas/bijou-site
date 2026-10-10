@@ -3,7 +3,7 @@
 // Slots and conflicts are docs/RIG.md section 5; the slip is section 5's last
 // paragraph and is not optional.
 
-import { itemById } from './catalog.js';
+import { itemById, resolvedItem } from './catalog.js';
 import {
   paintOf, cloth, bodice, straps, collar, scallops, sleeves, skirt, pants, hemY,
   smooth, line, shape, fillOnly, stroke, mirror, inkOf, darken, lighten, f1,
@@ -11,6 +11,7 @@ import {
 import { bow, heart } from './paint.js';
 import { legwearPieces, shoePieces } from './wear-legs.js';
 import { accessoryPieces } from './wear-acc.js';
+import { costumePieces } from './wear-costume.js';
 
 const ORDER = ['legwear', 'shoes', 'swim', 'bottom', 'top', 'dress', 'outer', 'neck', 'wrist', 'glasses', 'hat', 'hairacc', 'held'];
 
@@ -196,7 +197,8 @@ function outer(item, M) {
   const gap = o.style === 'raincoat' ? 0 : o.style === 'blazer' ? 9 : 7;
   const panel = (s) => {
     const X = (x) => 200 + s * x;
-    const pts = [[X(gap + 4), sY + 30, 1], [X(14), sY - 4, 1], [X(45), sY + 5], [X(45), sY + 15]];
+    const shoulderHW = M.shoulder.R.x - 200 + 2;
+    const pts = [[X(gap + 4), sY + 30, 1], [X(14), sY - 4, 1], [X(shoulderHW), sY + 5], [X(shoulderHW), sY + 15]];
     for (const y of [M.chestY, M.waistY, M.waistY + 28, M.hipY + 8, M.hipY + 40]) if (y < hem - 6) pts.push([X(M.torsoHW(y) + 4.5 + (y > M.waistY ? (y - M.waistY) * 0.08 : 0)), y]);
     const hx = M.torsoHW(Math.min(hem, M.hipY + 14)) + 5 + (hem > M.hipY ? (hem - M.hipY) * 0.18 : 0);
     pts.push([X(hx), hem, 1], [X(gap), hem, 1], [X(gap), M.chestY, 0]);
@@ -238,7 +240,7 @@ function outer(item, M) {
 }
 
 const GEN = {
-  dress, top: topGen, skirt: skirtGen, pants: pantsGen, swim2, swim1, outer,
+  dress, top: topGen, skirt: skirtGen, pants: pantsGen, swim2, swim1, outer, costume: costumePieces,
 };
 
 /** Pieces for one item, used by the outfit and by wardrobe thumbnails. */
@@ -259,7 +261,7 @@ export function outfitPieces(outfit, M, ctx) {
   const has = (slot) => !!itemById(outfit[slot]);
   if (!has('dress') && !has('swim')) pieces.push(...baseSlip(M, { top: !has('top'), bottom: !has('bottom') }));
   for (const slot of ORDER) {
-    const item = itemById(outfit[slot]);
+    const item = resolvedItem(outfit[slot],ctx.garments);
     if (!item) continue;
     const r = itemPieces(item, M, ctx);
     pieces.push(...r.pieces);

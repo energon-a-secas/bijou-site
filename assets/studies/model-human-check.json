@@ -1,0 +1,58 @@
+{
+  "bones": 163,
+  "bodyCases": 49,
+  "faceCases": 62,
+  "resetDrift": 0,
+  "eyeAngles": [
+    0.26043694599831274,
+    0.26043694599831274
+  ],
+  "closedLids": 2,
+  "maxHairDisplacement": 0.05850000000000006,
+  "medianEditMs": 144,
+  "export": {
+    "bytes": 10603700,
+    "meshes": 32,
+    "bones": [
+      163
+    ],
+    "eyes": [
+      {
+        "name": "Independent_eye_0",
+        "clearcoat": 1,
+        "roughnessMap": true
+      },
+      {
+        "name": "Independent_eye_1",
+        "clearcoat": 1,
+        "roughnessMap": true
+      }
+    ],
+    "clips": 0
+  },
+  "winkExport": {
+    "realistic": {
+      "bytes": 10617516,
+      "lidColorTexture": true,
+      "lidRoughnessTexture": true
+    },
+    "clay": {
+      "bytes": 10617516,
+      "lidColorTexture": true,
+      "lidRoughnessTexture": true
+    }
+  },
+  "memory": {
+    "before": {
+      "geometries": 33,
+      "textures": 41,
+      "triangles": 74322
+    },
+    "after": {
+      "geometries": 33,
+      "textures": 41,
+      "triangles": 74322
+    }
+  },
+  "errors": []
+}

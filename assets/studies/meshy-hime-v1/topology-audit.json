@@ -1,0 +1,21 @@
+{
+  "weld_tolerance": 1e-05,
+  "welded_vertices": 320303,
+  "connected_components": 1,
+  "largest_components": [
+    {
+      "vertices": 320303,
+      "min": [
+        -0.43779999017715454,
+        -0.9516699910163879,
+        -0.219650000333786
+      ],
+      "max": [
+        0.4377799928188324,
+        0.9510200023651123,
+        0.2217700034379959
+      ]
+    }
+  ],
+  "largest_component_fraction": 1.0
+}

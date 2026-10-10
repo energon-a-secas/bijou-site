@@ -16,7 +16,7 @@ export function paintOf(item) {
 }
 
 /** A filled, cel-shaded, outlined garment shape. */
-export const cloth = (d, p, sw = 2) => cel(d, p.fill, p.ink, sw);
+export const cloth = (d, p, sw = 1.5) => cel(d, p.fill, p.ink, sw, { dx: -7, dy: -2, depth: 0.15 });
 /** The same with a side-only shadow, for limb pieces that meet at a joint. */
 export const limb = (d, p, sw = 2) => cel(d, p.fill, p.ink, sw, { dx: -4.5, dy: 0 });
 
@@ -55,7 +55,7 @@ export function bodice(M, o = {}) {
   }
   const half = [...neck];
   if (STRAP_NECKS.has(o.neck)) half.push([200 + hw(armY + 6), armY + 6, 1]);
-  else half.push([200 + 43 + ease * 0.5, sY + 5], [200 + 42 + ease, sY + 14]);
+  else half.push([M.shoulder.R.x + ease * 0.5, sY + 5], [M.shoulder.R.x - 1 + ease, sY + 14]);
   for (const y of [M.chestY - 6, M.chestY + 4, M.chestY + 20, M.waistY, M.waistY + 26, M.hipY - 4, M.hipY + 14, M.hipY + 40]) {
     if (y > armY + 8 && y < hem - 6) half.push([200 + hw(y), y]);
   }
@@ -138,7 +138,10 @@ export function sleeves(M, o, p) {
     const outer = [[0, -top], [top, -1], [top + bulge * 0.9, L * 0.16], [Math.max(upHem, hw(upEnd * 0.6) + bulge * 0.4), yEnd * 0.62], [upHem, yEnd, 1]];
     const inner = [[-upHem, yEnd, 1], [-(hw(upEnd * 0.5) + bulge * 0.35), yEnd * 0.5], [-(top - 0.8), 5]];
     const d = smooth(outer.concat(inner).map(pu));
-    let svg = limb(d, p, 2);
+    const continuous = ['long', 'bell', 'wide'].includes(len);
+    let svg = continuous
+      ? limb(d, p, 0) + stroke(smooth(outer.map(pu), false) + smooth(inner.concat([outer[0]]).map(pu), false), p.ink, 1.45)
+      : limb(d, p, 1.5);
     if (len === 'puff') {
       svg += stroke(smooth([[-upHem, yEnd - 3], [0, yEnd - 1.5], [upHem, yEnd - 3]].map(pu), false), p.ink, 1.1, 'opacity=".55"');
       svg += stroke(smooth([[-4, 4], [-3, yEnd * 0.6]].map(pu), false) + smooth([[4, 3], [5, yEnd * 0.62]].map(pu), false), p.ink, 1, 'opacity=".35"');
@@ -165,7 +168,10 @@ export function sleeves(M, o, p) {
       } else {
         fpts = [[0, -cap], [cap, 0], [Math.max(fh(0.4), wristHW * 0.6), yF * 0.45], [wristHW, yF, 1], [-wristHW, yF, 1], [-Math.max(fh(0.4), wristHW * 0.6) * 0.96, yF * 0.45], [-cap, 0]];
       }
-      let fsvg = limb(smooth(fpts.map(pf)), p, 2);
+      // Keep the elbow cap unoutlined so the sleeve reads as one piece.
+      let fsvg = limb(smooth(fpts.map(pf)), p, 0) +
+        stroke(smooth(fpts.slice(1).map(pf), false), p.ink, 1.45);
+      fsvg += stroke(smooth([[fh(0) - 2, 5], [2, 10], [fh(0) - 4, 15]].map(pf), false), p.ink, 0.8, 'opacity=".28"');
       if (o.cuff && (len === 'long' || len === 'bell')) {
         fsvg += shape(line([[-wristHW - 0.4, yF - 5], [wristHW + 0.4, yF - 5], [wristHW + 0.4, yF + 0.5], [-wristHW - 0.4, yF + 0.5]].map(pf), true), p.trim, inkOf(p.trim), 1.4);
       }
@@ -216,8 +222,15 @@ export function skirt(M, o, p) {
   let foldsD = '';
   for (let i = 1; i < folds * 2; i += 2) {
     const [hx, hy] = hemPts[i];
-    const tx = 200 + (hx - 200) * (o.pleats ? 0.62 : 0.4);
-    foldsD += `M${f1(tx)} ${f1(topY + (hem - topY) * (o.pleats ? 0.08 : 0.32))}L${f1(hx)} ${f1(hy)}`;
+    const ty = topY + (hem - topY) * (o.pleats ? 0.08 : 0.32);
+    const foldHW = ty < M.hipY
+      ? topHW + (hipHW - topHW) * ((ty - topY) / Math.max(1, M.hipY - topY))
+      : hipHW + (hemHW - hipHW) * ((ty - M.hipY) / Math.max(1, hem - M.hipY));
+    const tx = 200 + ((hx - 200) / hemHW) * (foldHW - 3);
+    foldsD += `M${f1(tx)} ${f1(ty)}L${f1(hx)} ${f1(hy)}`;
+    if (o.sculpted || o.pleats) {
+      svg += fillOnly(`M${f1(tx)} ${f1(ty)}Q${f1((tx + hx) / 2 - 2)} ${f1((ty + hy) / 2)} ${f1(hx - 5)} ${f1(hy + 1)}L${f1(hx)} ${f1(hy)}Z`, p.ink, `opacity="${o.sculpted ? '.16' : '.12'}"`);
+    }
   }
   svg += stroke(foldsD, p.ink, o.pleats ? 1.2 : 1.1, `opacity="${o.pleats ? 0.5 : 0.38}"`);
   if (o.tiers) {

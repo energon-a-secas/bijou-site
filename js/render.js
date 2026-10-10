@@ -2,7 +2,7 @@
 // Interpolated text goes through escHtml; item art comes from thumbs.js, which
 // draws from catalog data, never from visitor input.
 
-import { CATALOG, CATEGORIES, MILESTONES, itemById } from './catalog.js';
+import { CATALOG, CATEGORIES, MILESTONES, resolvedItem } from './catalog.js';
 import { isWorn, canAfford, tagCount } from './wardrobe.js';
 import { itemThumb } from './thumbs.js';
 import { escHtml, $ } from './utils.js';
@@ -23,7 +23,7 @@ export function renderHearts(s) {
 
 export function renderCategories(s) {
   $('categories').innerHTML = CATEGORIES.map((c) => {
-    const items = CATALOG.filter((it) => c.slots.includes(it.slot));
+    const items = CATALOG.filter((it) => c.slots.includes(it.slot)&&(!c.templates||it.template));
     const fresh = items.some((it) => s.unlocked.has(it.id) && !s.seen.has(it.id));
     return `<button class="chip" type="button" data-cat="${c.id}" aria-pressed="${c.id === s.ui.category}">${escHtml(c.name)}${fresh ? ' <span aria-label="new items">•</span>' : ''}</button>`;
   }).join('');
@@ -45,7 +45,7 @@ function label(s, it) {
 
 export function renderItems(s) {
   const cat = CATEGORIES.find((c) => c.id === s.ui.category) || CATEGORIES[0];
-  const items = CATALOG.filter((it) => cat.slots.includes(it.slot))
+  const items = CATALOG.filter((it) => cat.slots.includes(it.slot) && (!cat.templates||it.template) && (!cat.featured || ['swim-bikini', 'dress-captain', 'hat-captain', 'shoes-captain', 'swim-tuxedo', 'shoes-mint', 'hat-bunny'].includes(it.id)))
     .sort((a, b) => (s.unlocked.has(b.id) - s.unlocked.has(a.id)) || ((a.unlock.hearts || 0) - (b.unlock.hearts || 0)));
   const fresh = [];
   $('items').innerHTML = items.map((it) => {
@@ -57,7 +57,7 @@ export function renderItems(s) {
     if (s.wish && it.tags.includes(s.wish.tag)) cls.push('is-wished');
     return `<li><button class="${cls.join(' ')}" type="button" data-id="${it.id}"${owned ? ` data-drag-id="${it.id}"` : ''}` +
       ` aria-pressed="${isWorn(s, it.id)}" aria-label="${escHtml(label(s, it) + (s.wish && it.tags.includes(s.wish.tag) ? ' Matches her wish.' : ''))}">` +
-      `${itemThumb(it, s.head)}<span class="item__name">${escHtml(it.name)}</span>` +
+      `${itemThumb(resolvedItem(it.id,s.garments), s.head)}<span class="item__name">${escHtml(it.name)}</span>` +
       `<span class="item__meta">${meta(s, it)}</span></button></li>`;
   }).join('');
   for (const id of fresh) s.seen.add(id);
@@ -65,7 +65,8 @@ export function renderItems(s) {
 }
 
 export function renderWearing(s) {
-  const worn = Object.values(s.outfit).map(itemById).filter(Boolean);
+  $('stageName').textContent = s.name;
+  const worn = Object.values(s.outfit).map(id=>resolvedItem(id,s.garments)).filter(Boolean);
   $('wearing').innerHTML = worn.length
     ? worn.map((it) => `<li><button class="wearing__item" type="button" data-remove="${it.id}" data-drag-id="${it.id}" aria-label="Take off ${escHtml(it.name)}">` +
       `${itemThumb(it, s.head, 'wearing__thumb')}<span>${escHtml(it.name)}</span></button></li>`).join('')

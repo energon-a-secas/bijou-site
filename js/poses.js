@@ -3,6 +3,7 @@
 // loop(t) adds motion inside a held pose. Angles are outward-positive.
 
 import { solveArm } from './rig.js';
+import { reachFor } from './pose-reaches.js';
 
 const STAND_ARM = { upper: 9, fore: -5 };
 /** The left arm while holding something, unless the pose says otherwise. */
@@ -31,9 +32,18 @@ function pose(id, label, o) {
 const sway = (k, f) => (t) => k * Math.sin(t * f);
 
 export const POSES = Object.fromEntries([
-  pose('stand', 'Stand', {
-    legs: { L: { thigh: 3.5, shin: -2, foot: 4 }, R: { thigh: -1.5, shin: 4.5, foot: 9 } },
-    root: { rot: 1.4 }, spine: -2.4, head: 2.5,
+  pose('stand', 'Relaxed', {
+    legs: { L: { thigh: 2, shin: -.5, foot: 3 }, R: { thigh: .8, shin: .5, foot: 4 } },
+    root: { rot: .5 }, spine: -.6, head: 1,
+  }),
+  pose('elegant','Poised',{
+    legs:{L:{thigh:.5,shin:0,foot:2},R:{thigh:3.5,shin:-1.5,foot:3}},root:{rot:-.6},spine:.8,head:-1.5,
+  }),
+  pose('ready','Balanced',{
+    legs:{L:{thigh:3.5,shin:0,foot:4},R:{thigh:3.5,shin:0,foot:4}},head:.5,
+  }),
+  pose('reserved','Composed',{
+    arms:{L:{upper:9,fore:-16},R:{upper:9,fore:-16}},legs:{L:{thigh:.5,shin:0,foot:1},R:{thigh:.5,shin:0,foot:1}},head:2,
   }),
   pose('wave', 'Wave', {
     arms: { R: { upper: 148, fore: -28 } }, hands: { R: 'open' }, head: 4, expr: 'happy',
@@ -54,13 +64,18 @@ export const POSES = Object.fromEntries([
     arms: { L: { upper: 10, fore: -6 }, R: { to: ['cheek', 36, -22], bend: 'in' } },
     band: { R: 'front' }, hands: { R: 'peace' }, head: 6, expr: 'wink',
   }),
+  pose('salute', 'Salute', {
+    arms: { L: { upper: 14, fore: -10 }, R: { to: ['cheek', 22, -46], bend: 'in', hand: 12 } },
+    legs: { L: { thigh: 6, shin: -3, foot: 5 }, R: { thigh: 3, shin: -2, foot: 4 } },
+    band: { R: 'front' }, hands: { R: 'rest' }, head: -3, expr: 'wink',
+  }),
   pose('hips', 'Hands on hips', {
     arms: { L: { to: ['waist', 9, 12], bend: 'out' }, R: { to: ['waist', 9, 12], bend: 'out' } },
     hands: { L: 'fist', R: 'fist' }, legs: { L: { thigh: 4.5, shin: -2.5, foot: 6 }, R: { thigh: 4.5, shin: -2.5, foot: 6 } },
     head: -3, expr: 'grin',
   }),
   pose('stretch', 'Stretch', {
-    arms: { L: { to: ['crown', 34, -30], bend: 'out' }, R: { to: ['crown', 34, -30], bend: 'out' } },
+    arms: { L: { to: ['crown', 34, -30], bend: 'in' }, R: { to: ['crown', 34, -30], bend: 'in' } },
     hands: { L: 'open', R: 'open' }, legs: { L: { thigh: 0.5, shin: 0, foot: 1 }, R: { thigh: 0.5, shin: 0, foot: 1 } },
     root: { y: -3 }, expr: 'joy',
     loop: (t) => ({ spine: sway(2.2, 1.6)(t) }),
@@ -70,7 +85,7 @@ export const POSES = Object.fromEntries([
     hands: { L: 'curl', R: 'curl' }, head: 5, expr: 'happy',
   }),
   pose('think', 'Think', {
-    arms: { R: { to: ['chin', 16, 16], bend: 'out' } }, band: { R: 'front' }, hands: { R: 'point' },
+    arms: { R: { upper: 30, fore: -135 } }, band: { R: 'front' }, hands: { R: 'point' },
     head: -5, expr: 'curious', look: [0.5, -0.5],
   }),
   pose('cheer', 'Cheer', {
@@ -114,6 +129,10 @@ export const POSES = Object.fromEntries([
     arms: { L: { upper: 72, fore: 12 }, R: { upper: 72, fore: 12 } }, hands: { L: 'open', R: 'open' },
     skirt: { sx: 1.22, sy: 0.96 }, expr: 'joy', hidden: true,
   }),
+  pose('shape', 'Shape', {
+    arms: {L:{upper:35,fore:0},R:{upper:35,fore:0}}, hidden:true,
+    legs: {L:{thigh:4,shin:0},R:{thigh:4,shin:0}},
+  }),
 ].map((p) => [p.id, p]));
 
 /** The poses a visitor can pick; the rest belong to the behaviour engine. */
@@ -128,7 +147,7 @@ export function resolvePose(M, p, { holding = false } = {}) {
     const ang = arm.to ? solveArm(M, s, arm) : arm;
     bones[`upperArm${side}`] = { a: ang.upper };
     bones[`foreArm${side}`] = { a: ang.fore };
-    bones[`hand${side}`] = { a: arm.hand || 0 };
+    bones[`hand${side}`] = { a: arm.hand || 0, ...reachFor(p.id,side,holding) };
     const leg = p.legs[side];
     bones[`thigh${side}`] = { a: leg.thigh || 0, sy: leg.thighSY ?? 1 };
     bones[`shin${side}`] = { a: leg.shin || 0, sy: leg.shinSY ?? 1 };
@@ -139,6 +158,6 @@ export function resolvePose(M, p, { holding = false } = {}) {
   bones.head = { a: p.head };
   bones.skirt = { a: 0, sx: p.skirt.sx, sy: p.skirt.sy };
   const rootY = typeof p.root.y === 'function' ? p.root.y(M) : p.root.y;
-  bones.root = { a: p.root.rot || 0 };
+  bones.root = { a: p.root.rot || 0,plant:['dangle','hop','cheer','spin'].includes(p.id)?0:1,seat:p.prop==='pouf'?1:0 };
   return { bones, rootX: p.root.x || 0, rootY };
 }

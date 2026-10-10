@@ -30,7 +30,7 @@ function bbox(inner) {
 
 /** SVG markup for an item card. head decides where hair accessories sit. */
 export function itemThumb(item, head, cls = 'item__thumb') {
-  const key = `${item.id}|${item.slot === 'hairacc' ? head.back : ''}|${cls}`;
+  const key = `${item.id}|${item.slot === 'hairacc' ? head.back : ''}|${cls}|${item.template?JSON.stringify([item.params.fit,item.colors]):''}`;
   if (cache.has(key)) return cache.get(key);
   const ctx = { head, hair: byId(HAIR, head.hair), skin: byId(SKIN, DEFAULT_BODY.skin) };
   const { pieces, def } = itemPieces(item, M, ctx);
@@ -46,7 +46,7 @@ export function itemThumb(item, head, cls = 'item__thumb') {
   const side = Math.max(b.width, b.height) * 1.12 + 6;
   const vb = [b.x + b.width / 2 - side / 2, b.y + b.height / 2 - side / 2, side, side].map(f1).join(' ');
   const svg = `<svg class="${cls}" viewBox="${vb}" aria-hidden="true" focusable="false"><defs>${def}</defs>${inner}</svg>`;
-  cache.set(key, svg);
+  if(cache.size>=200)cache.delete(cache.keys().next().value);cache.set(key, svg);
   return svg;
 }
 

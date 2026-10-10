@@ -5,7 +5,7 @@
 
 import { f1, smooth, line, shape, fillOnly, stroke, cel } from './paint.js';
 
-const SW = 2.2;
+const SW = 1.45;
 
 /**
  * Fill with a cel shadow down the right side, then outline only the edges that

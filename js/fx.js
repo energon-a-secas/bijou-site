@@ -14,7 +14,7 @@ const ICON = {
 
 export function createFx({ stage, layer, bubble, live, doll }) {
   let talkTimer = 0, hideTimer = 0, speaking = false;
-  let box = null; // stage rect and bubble size, read once per line instead of every frame
+  let box = null; // Bubble dimensions are cached until the stage resizes.
 
   function toStage(pt, rect) {
     const m = doll.svg.getScreenCTM();
@@ -68,9 +68,16 @@ export function createFx({ stage, layer, bubble, live, doll }) {
     place();
   }
 
-  /** Keep the bubble above her head; called every frame without re-measuring the stage or bubble. */
+  /** Keep speech inside the stage, including after scrolling, resizing or popping out. */
   function place() {
     if (!speaking || !box) return;
+    const rect = stage.getBoundingClientRect();
+    if (rect.width !== box.rect.width || rect.height !== box.rect.height) {
+      box.w = stage.clientWidth;
+      box.bw = bubble.offsetWidth;
+      box.bh = bubble.offsetHeight;
+    }
+    box.rect = rect;
     const p = toStage(doll.worldOf('head', 200, 96), box.rect);
     const half = Math.min(box.bw / 2, box.w / 2 - 8);
     bubble.style.left = `${Math.max(half + 8, Math.min(box.w - half - 8, p.x))}px`;

@@ -3,7 +3,7 @@
 // the neck and spine. Held items are drawn upright around the palm: the doll
 // keeps them level whatever the arm does (doll.js reads `upright`).
 
-import { smooth, line, shape, fillOnly, stroke, inkOf, darken, lighten, f1, scallops } from './wear-kit.js';
+import { smooth, line, shape, fillOnly, stroke, inkOf, darken, lighten, f1, scallops, at, cel } from './wear-kit.js';
 import { bow, star, heart } from './paint.js';
 
 /** A small five-petal flower centred on (x, y). */
@@ -19,6 +19,10 @@ function flower(x, y, r, petal, centre = '#ffe08a') {
 function hat(style, p) {
   const H = (z, svg, extra = {}) => ({ bone: 'head', z, depth: 0.5, svg, ...extra });
   switch (style) {
+    case 'captain': {
+      const brim = 'M126 157C98 147 112 113 133 82C157 46 184 20 201 20C222 20 252 54 275 93C295 127 299 150 277 158L250 153Q253 107 215 108Q163 99 151 158Z';
+      return [H(455, cel(brim, p.fill, p.ink, 1.5, { dx: -8, dy: -5, shadow: '#d6cdd3' }) + stroke('M124 146Q116 130 141 89Q178 32 200 28', '#fff9ee', 2.2, 'opacity=".65"') + shape('M154 91l-6-12l5-9l9 3l4 12l-5 8l-4-5l2-9l-6-3l-2 6Z', '#b8ada0', '#877869', 1))];
+    }
     case 'beret':
       return [H(460, `<g transform="rotate(-12 212 120)">${shape('M162 128Q160 98 210 96Q262 96 262 124Q236 134 162 128Z', p.fill, p.ink, 2)}` +
         `${shape('M170 126Q212 134 256 124L256 130Q212 140 170 132Z', darken(p.main, 0.15), p.ink, 1.4)}` +
@@ -94,12 +98,12 @@ function hairAcc(style, p, ctx) {
     case 'headband':
       return [H(stroke('M147 170Q150 118 200 114Q250 118 253 170', p.ink, 8) + stroke('M147 170Q150 118 200 114Q250 118 253 170', p.main, 6) + bow(232, 126, 9, p.main, p.ink, 16), 455)];
     case 'loops': {
-      // Two open ribbon loops on the crown with tails trailing behind.
+      // A loop on each side, framing the bob like the character reference.
       const band = (d, w = 7) => stroke(d, lighten(p.main, 0.35), w + 2.6) + stroke(d, p.main, w);
-      const loops = 'M244 132C232 128 216 110 226 100C236 92 246 112 244 132ZM248 132C260 122 282 112 286 124C290 136 266 138 248 132Z';
+      const loops = 'M152 139C135 138 122 115 125 99C139 96 160 116 152 139ZM246 130C248 111 264 88 278 90C285 107 270 129 246 130Z';
       return [
-        { bone: 'head', z: 13, depth: -0.3, svg: band('M247 134Q262 160 288 182', 5) + band('M247 134Q254 164 266 190', 4.6) },
-        H(band(loops, 6.4) + `<ellipse cx="246" cy="133" rx="6.4" ry="5.6" fill="${p.main}" stroke="${lighten(p.main, 0.35)}" stroke-width="1.4"/>`),
+        { bone: 'head', z: 11, depth: -0.3, svg: band(loops, 6.4) + band('M250 133Q277 142 286 161', 4.8) },
+        H(`<ellipse cx="249" cy="133" rx="4.5" ry="4" fill="${p.main}" stroke="${lighten(p.main, 0.35)}" stroke-width="1"/>`),
       ];
     }
     default:
@@ -212,7 +216,15 @@ export function accessoryPieces(item, M, p, ctx) {
     case 'neck': return neckwear(style, p, M);
     case 'glasses': return glasses(style, p);
     case 'held': return held(style, p);
-    case 'wrist': return wristwear(M);
+    case 'wrist': {
+      if (style !== 'cuffs') return wristwear(M);
+      return ['L', 'R'].map((side) => {
+        const s = side === 'L' ? -1 : 1, P = at(M.wrist[side], s);
+        const d = line([[-10, -11], [10, -11], [11, 2], [-11, 2]].map(P), true);
+        const [x, y] = P([3, -4]);
+        return { bone: `foreArm${side}`, z: 332, svg: shape(d, p.fill, p.ink, 1.2) + `<circle cx="${f1(x)}" cy="${f1(y)}" r="2.3" fill="${p.trim}"/>` };
+      });
+    }
     default: return [];
   }
 }

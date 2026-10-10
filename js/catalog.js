@@ -1,6 +1,7 @@
 // ── Catalog ──────────────────────────────────────────────────
 // Every wearable item, per docs/RIG.md section 7. Data only: the drawings are
-// wear*.js. Ten items start unlocked; the rest cost hearts or a milestone.
+// wear*.js. Free pieces start unlocked; the rest cost hearts or a milestone.
+import { TEMPLATE_ITEMS, customizeItem, cleanGarment } from './garment-templates.js';
 
 const I = (id, name, slot, kind, params, colors, extra = {}) => ({
   id, name, slot, kind, params, colors,
@@ -20,6 +21,8 @@ export const CONFLICTS = {
 };
 
 export const CATEGORIES = [
+  { id:'basics',name:'Basics',slots:['top','bottom','dress','swim'],templates:true },
+  { id: 'featured', name: 'Featured', slots: ['dress', 'top', 'bottom', 'swim', 'shoes', 'hat'], featured: true },
   { id: 'dresses', name: 'Dresses', slots: ['dress'] },
   { id: 'tops', name: 'Tops', slots: ['top'] },
   { id: 'bottoms', name: 'Bottoms', slots: ['bottom'] },
@@ -39,6 +42,15 @@ export const MILESTONES = {
 };
 
 export const CATALOG = [
+  ...TEMPLATE_ITEMS,
+  // Signature ensembles: available from the first visit.
+  I('dress-captain', 'Rose Captain Uniform', 'dress', 'costume', { style: 'captain' }, { main: '#ad253b', trim: '#f8f4eb', accent: '#d2ad5c' }, { tags: ['elegant', 'party'], unlock: FREE }),
+  I('hat-captain', 'Ivory Captain Hat', 'hat', 'acc', { style: 'captain' }, { main: '#f4efe6', trim: '#d2ad5c' }, { tags: ['elegant', 'party'], unlock: FREE }),
+  I('shoes-captain', 'Crimson Tall Boots', 'shoes', 'shoes', { style: 'captain' }, { main: '#6d2637', trim: '#d2ad5c' }, { tags: ['elegant', 'party'], unlock: FREE }),
+  I('swim-tuxedo', 'Midnight Tuxedo Suit', 'swim', 'costume', { style: 'tuxedo' }, { main: '#303039', trim: '#f8f4eb' }, { tags: ['elegant', 'party', 'night'], unlock: FREE }),
+  I('legs-satin', 'Cocoa Satin Tights', 'legwear', 'legwear', { style: 'tights' }, { main: '#675451', trim: '#453737' }, { tags: ['elegant', 'night'], unlock: FREE }),
+  I('wrist-cuffs', 'Tuxedo Cuffs', 'wrist', 'acc', { style: 'cuffs' }, { main: '#f8f4eb', trim: '#34333b' }, { tags: ['elegant', 'party'], unlock: FREE }),
+  I('shoes-mint', 'Mint-sole Heels', 'shoes', 'shoes', { style: 'pump' }, { main: '#2e3037', trim: '#6bdec6', accent: '#6bdec6' }, { tags: ['elegant', 'night'], unlock: FREE }),
   // Dresses
   I('dress-lilac', 'Lilac Babydoll', 'dress', 'dress', { neck: 'crew', sleeve: 'puff', puff: 1, cuff: true, len: 'short', flare: 0.75, waist: 'empire', collar: 'peter', bow: '#ff8fb8' }, { main: '#cdb2f5', trim: '#ffffff', accent: '#a98ae6' }, { tags: ['sweet', 'party', 'picnic'], unlock: FREE }),
   I('dress-lemon', 'Lemon Sundress', 'dress', 'dress', { neck: 'square', sleeve: 'none', len: 'midi', flare: 0.6, lace: '#ffffff', belt: '#f2b632' }, { main: '#fff3a8', pattern: '#f6c945' }, { pattern: 'dots', tags: ['picnic', 'beach'], unlock: H(20) }),
@@ -71,6 +83,7 @@ export const CATALOG = [
   I('bottom-overall', 'Overall Skirt', 'bottom', 'skirt', { len: 'short', flare: 0.35, bib: true, heart: '#ff8fb8' }, { main: '#8fb3e8' }, { tags: ['picnic', 'sweet'], unlock: H(40) }),
 
   // Swim
+  I('swim-bikini', 'Sea-glass Bikini', 'swim', 'swim2', { top: 'halter', bottom: 'brief' }, { main: '#397f88', trim: '#efe2c8' }, { tags: ['beach', 'sporty'], unlock: FREE }),
   I('swim-onepiece', 'Ribbon Swimsuit', 'swim', 'swim1', { neck: 'square', skirt: true, bow: '#ffffff', lace: '#ffffff' }, { main: '#6cc4e8', trim: '#ffffff' }, { tags: ['beach', 'sporty'], unlock: H(30) }),
   I('swim-tankini', 'Wave Tankini', 'swim', 'swim2', { top: 'tank', bottom: 'skirt', frill: true }, { main: '#9fe3cf', pattern: '#ffffff', trim: '#ffffff' }, { pattern: 'stripes', tags: ['beach', 'sporty'], unlock: H(35) }),
   I('swim-frill', 'Frill Bikini', 'swim', 'swim2', { top: 'frill', bottom: 'skirt', frill: true, bow: '#ff6f9a' }, { main: '#ffb3cf', trim: '#ffffff' }, { tags: ['beach'], unlock: H(40) }),
@@ -106,7 +119,7 @@ export const CATALOG = [
   // Accessories
   I('hair-loops', 'Loop Ribbon', 'hairacc', 'acc', { style: 'loops' }, { main: '#1f1a24' }, { tags: ['elegant', 'sweet'], unlock: FREE }),
   I('wrist-beads', 'Bead Bracelet', 'wrist', 'acc', { style: 'beads' }, { main: '#ff6f9a' }, { tags: ['party', 'sweet'], unlock: FREE }),
-  I('hat-bunny', 'Bunny-ear Headband', 'hat', 'acc', { style: 'bunny' }, { main: '#1f1a24', trim: '#c4323f' }, { tags: ['party'], unlock: H(30) }),
+  I('hat-bunny', 'Bunny-ear Headband', 'hat', 'acc', { style: 'bunny' }, { main: '#1f1a24', trim: '#c4323f' }, { tags: ['party'], unlock: FREE }),
   I('hair-ribbon', 'Big Ribbon', 'hairacc', 'acc', { style: 'ribbon' }, { main: '#ff8fb8' }, { tags: ['sweet', 'party'], unlock: FREE }),
   I('hair-stars', 'Star Clips', 'hairacc', 'acc', { style: 'stars' }, { main: '#ffd84d', trim: '#ffffff' }, { tags: ['party', 'night'], unlock: H(10) }),
   I('hair-berry', 'Strawberry Clips', 'hairacc', 'acc', { style: 'strawberry' }, { main: '#ff5d7a' }, { tags: ['sweet', 'picnic'], unlock: H(15) }),
@@ -137,12 +150,14 @@ export const CATALOG = [
 ];
 
 const BY_ID = new Map(CATALOG.map((it) => [it.id, it]));
+BY_ID.get('swim-bikini').template='bikini';
 export const itemById = (id) => (id ? BY_ID.get(id) || null : null);
+export const resolvedItem = (id,settings) => customizeItem(itemById(id),settings);
+export const cleanGarments = settings => Object.fromEntries(CATALOG.filter(it=>it.template&&settings?.[it.id]).map(it=>[it.id,cleanGarment(it,settings[it.id])]));
 
 export const FREE_IDS = CATALOG.filter((it) => it.unlock.free).map((it) => it.id);
 
 /** The outfit she wears on a first visit. */
 export const STARTER_OUTFIT = {
-  top: 'top-tie', outer: 'outer-blazer', bottom: 'bottom-circuit', legwear: 'legs-thigh',
-  shoes: 'shoes-glow', hairacc: 'hair-loops', wrist: 'wrist-beads',
+  swim: 'swim-bikini',
 };

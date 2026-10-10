@@ -90,12 +90,12 @@ export function createDoll(svg) {
     colors = {
       skin: byId(SKIN, cfg.body.skin), hair: byId(HAIR, cfg.head.hair), eye: byId(EYES, cfg.head.eyes).base,
     };
-    const outfit = outfitPieces(cfg.outfit || {}, M, { head: cfg.head, hair: colors.hair, skin: colors.skin });
+    const outfit = outfitPieces(cfg.outfit || {}, M, { head: cfg.head, hair: colors.hair, skin: colors.skin,garments:cfg.garments });
     flags = outfit.flags;
     dyn.innerHTML = outfit.defs;
     const head = cfg.head.ahoge && flags.hideAhoge ? { ...cfg.head, ahoge: false } : cfg.head;
     const pieces = [
-      ...bodyPieces(M, colors.skin), ...facePieces(colors.skin), ...hairPieces(head, colors.hair),
+      ...bodyPieces(M, colors.skin), ...facePieces(colors.skin, head), ...hairPieces(head, colors.hair),
       ...outfit.pieces, ...dynamicPieces(),
     ];
     mount(pieces);

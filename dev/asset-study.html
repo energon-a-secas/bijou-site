@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Bijou · Meshy study</title>
+  <link rel="stylesheet" href="./asset-study.css">
+</head>
+<body>
+  <main>
+    <aside>
+      <a class="back" href="../">← Bijou</a>
+      <h1>A new starting point</h1>
+      <p class="intro">Meshy character study · Hime / oval</p>
+      <label>Asset<select id="asset"><option value="generated">Generated mesh</option><option value="working">Working mesh</option><option value="rigged">Rigged character</option><option value="walking">Walking test</option><option value="t2">T2 light mesh</option><option value="t2rig">T2 rigged character</option><option value="t2walk">T2 walking test</option></select></label>
+      <a class="back" href="./model-studio.html">Shape these models →</a>
+      <a id="download" class="back" href="../assets/studies/meshy-hime-v1/generated.glb" download>Download this GLB</a>
+      <label>Surface<select id="surface"><option value="realistic">Original materials</option><option value="anime3d">Anime 3D</option><option value="anime2d">Anime 2D</option><option value="clay">Plain clay</option><option value="unlit">Color without lighting</option></select></label>
+      <div class="views" aria-label="Camera view"><button data-view="front">Front</button><button data-view="side">Side</button><button data-view="back">Back</button><button data-view="three">¾ view</button></div>
+      <label>Inspect<select id="focus"><option value="figure">Full figure</option><option value="face">Face</option><option value="torso">Torso &amp; clothes</option><option value="legs">Legs &amp; feet</option></select></label>
+      <div class="toggles"><label><input id="wire" type="checkbox"> Wireframe</label><label><input id="skeleton" type="checkbox"> Skeleton</label></div>
+      <label class="check"><input id="play" type="checkbox" disabled> Play animation</label>
+      <label>Animation frame<input id="scrub" type="range" min="0" max="1" step=".001" value="0" disabled></label>
+      <p id="status" role="status">Loading candidate…</p>
+      <dl id="metrics"></dl>
+      <details><summary>Model structure</summary><pre id="structure"></pre></details>
+      <details><summary>Reference</summary><img src="../assets/studies/meshy-hime-v1/reference.png" alt="Adult Hime character reference in a neutral A-pose and fitted teal athletic outfit"></details>
+      <p class="note">Inspect untouched source assets here, or shape and export them in the <a href="./model-studio.html">model studio</a>. The main app has the companion wardrobe and behavior.</p>
+    </aside>
+    <section id="viewport" aria-label="Interactive model inspection"><canvas tabindex="0" aria-label="Drag to orbit, scroll to zoom. Arrow keys rotate; plus and minus zoom."></canvas><p class="hint">Drag to orbit · scroll to zoom · arrow keys rotate</p></section>
+  </main>
+  <script type="module" src="./asset-study.js"></script>
+</body>
+</html>

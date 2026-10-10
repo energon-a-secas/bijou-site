@@ -1,0 +1,277 @@
+{
+  "assets": [
+    "generated",
+    "working",
+    "rigged",
+    "walking"
+  ],
+  "reports": {
+    "generated": {
+      "meshes": 1,
+      "vertices": 353935,
+      "triangles": 640848,
+      "skinnedMeshes": 0,
+      "skeletons": 0,
+      "bones": [],
+      "morphTargets": 0,
+      "sourceSize": [
+        0.8755840063095093,
+        1.9026920199394226,
+        0.44141800701618195
+      ],
+      "animations": [],
+      "materials": [
+        {
+          "name": "",
+          "type": "MeshStandardMaterial",
+          "colorMap": true,
+          "normalMap": true,
+          "roughnessMap": true,
+          "metalnessMap": true,
+          "alpha": false
+        }
+      ],
+      "neutralBounds": {
+        "min": [
+          -0.38655260945668135,
+          0,
+          -0.19487711201174743
+        ],
+        "max": [
+          0.3865526094566813,
+          1.68,
+          0.19487711201174743
+        ],
+        "screenMin": [
+          -0.3767679802746617,
+          -0.8012725357077215,
+          0.995175167337642
+        ],
+        "screenMax": [
+          0.37676798027466163,
+          0.7629699764903106,
+          0.9956752800200677
+        ]
+      }
+    },
+    "working": {
+      "meshes": 1,
+      "vertices": 96575,
+      "triangles": 102921,
+      "skinnedMeshes": 0,
+      "skeletons": 0,
+      "bones": [],
+      "morphTargets": 0,
+      "sourceSize": [
+        0.8755629658699036,
+        1.9026638865470886,
+        0.44128505885601044
+      ],
+      "animations": [],
+      "materials": [
+        {
+          "name": "BakedMaterial",
+          "type": "MeshStandardMaterial",
+          "colorMap": true,
+          "normalMap": true,
+          "roughnessMap": true,
+          "metalnessMap": true,
+          "alpha": false
+        }
+      ],
+      "neutralBounds": {
+        "min": [
+          -0.38654903608090163,
+          0,
+          -0.19482129873802853
+        ],
+        "max": [
+          0.3865490360809016,
+          1.68,
+          0.1948212987380285
+        ],
+        "screenMin": [
+          -0.376759217083811,
+          -0.8012598964787098,
+          0.9951752377597767
+        ],
+        "screenMax": [
+          0.37675921708381094,
+          0.7629608532300434,
+          0.9956752229167496
+        ]
+      }
+    },
+    "rigged": {
+      "meshes": 1,
+      "vertices": 96655,
+      "triangles": 102921,
+      "skinnedMeshes": 1,
+      "skeletons": 1,
+      "bones": [
+        "Hips",
+        "Spine02",
+        "Spine01",
+        "Spine",
+        "neck",
+        "Head",
+        "head_end",
+        "headfront",
+        "LeftShoulder",
+        "LeftArm",
+        "LeftForeArm",
+        "LeftHand",
+        "RightShoulder",
+        "RightArm",
+        "RightForeArm",
+        "RightHand",
+        "LeftUpLeg",
+        "LeftLeg",
+        "LeftFoot",
+        "LeftToeBase",
+        "RightUpLeg",
+        "RightLeg",
+        "RightFoot",
+        "RightToeBase"
+      ],
+      "morphTargets": 0,
+      "sourceSize": [
+        0.7730981333594846,
+        1.6800002271458454,
+        0.3896426538082052
+      ],
+      "animations": [
+        {
+          "name": "Armature|clip0|baselayer",
+          "duration": 0.03333333507180214,
+          "tracks": 72
+        }
+      ],
+      "materials": [
+        {
+          "name": "BakedMaterial",
+          "type": "MeshStandardMaterial",
+          "colorMap": true,
+          "normalMap": true,
+          "roughnessMap": true,
+          "metalnessMap": true,
+          "alpha": false
+        }
+      ],
+      "neutralBounds": {
+        "min": [
+          -0.3865490144160503,
+          5.934977064835266e-17,
+          -0.1948213005483118
+        ],
+        "max": [
+          0.3865490144160502,
+          1.68,
+          0.19482130053350263
+        ],
+        "screenMin": [
+          -0.37675919613750813,
+          -0.8012598968852993,
+          0.9951752377575112
+        ],
+        "screenMax": [
+          0.3767591961375081,
+          0.7629608535235282,
+          0.9956752229186018
+        ]
+      }
+    },
+    "walking": {
+      "meshes": 1,
+      "vertices": 96655,
+      "triangles": 102921,
+      "skinnedMeshes": 1,
+      "skeletons": 1,
+      "bones": [
+        "Hips",
+        "Spine02",
+        "Spine01",
+        "Spine",
+        "neck",
+        "Head",
+        "head_end",
+        "headfront",
+        "LeftShoulder",
+        "LeftArm",
+        "LeftForeArm",
+        "LeftHand",
+        "RightShoulder",
+        "RightArm",
+        "RightForeArm",
+        "RightHand",
+        "LeftUpLeg",
+        "LeftLeg",
+        "LeftFoot",
+        "LeftToeBase",
+        "RightUpLeg",
+        "RightLeg",
+        "RightFoot",
+        "RightToeBase"
+      ],
+      "morphTargets": 0,
+      "sourceSize": [
+        0.7730981333594846,
+        1.6800002271458454,
+        0.3896426538082052
+      ],
+      "animations": [
+        {
+          "name": "Armature|walking_man|baselayer",
+          "duration": 1.066666603088379,
+          "tracks": 66
+        }
+      ],
+      "materials": [
+        {
+          "name": "BakedMaterial",
+          "type": "MeshStandardMaterial",
+          "colorMap": true,
+          "normalMap": true,
+          "roughnessMap": true,
+          "metalnessMap": true,
+          "alpha": false
+        }
+      ],
+      "neutralBounds": {
+        "min": [
+          -0.3865490144160503,
+          5.934977064835266e-17,
+          -0.1948213005483118
+        ],
+        "max": [
+          0.3865490144160502,
+          1.68,
+          0.19482130053350263
+        ],
+        "screenMin": [
+          -0.37675919613750813,
+          -0.8012598968852993,
+          0.9951752377575112
+        ],
+        "screenMax": [
+          0.3767591961375081,
+          0.7629608535235282,
+          0.9956752229186018
+        ]
+      }
+    }
+  },
+  "memory": [
+    {
+      "geometries": 3,
+      "textures": 4,
+      "triangles": 102985
+    },
+    {
+      "geometries": 3,
+      "textures": 4,
+      "triangles": 102985
+    }
+  ],
+  "errors": []
+}

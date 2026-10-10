@@ -3,12 +3,13 @@
 // Data only. The drawings that read it are body.js, face.js and hair.js.
 
 import { mix } from './paint.js';
+import { SHAPE_DEFAULTS, MOTION_DEFAULTS, NAIL_DEFAULTS } from './body-shape.js';
 
 const skin = (id, name, base) => ({
   id, name, base,
-  shadow: mix(base, '#c45c6a', 0.2),
+  shadow: mix(base, '#bc7569', 0.18),
   deep: mix(base, '#9a3f52', 0.32),
-  line: mix(base, '#4a1f2a', 0.66),
+  line: mix(base, '#654337', 0.63),
 });
 
 export const SKIN = [
@@ -31,7 +32,8 @@ const hair = (id, name, base) => ({
 });
 
 export const HAIR = [
-  hair('ember', 'Ember', '#ec6a3d'),
+  hair('ember', 'Ember', '#cb603d'),
+  hair('rosewood', 'Rose', '#d65f8c'),
   hair('sakura', 'Sakura', '#f6a6c6'),
   hair('lilac', 'Lilac', '#c5a3f0'),
   hair('silver', 'Silver', '#dcdeea'),
@@ -67,6 +69,13 @@ export const EYE_STYLES = [
   { id: 'sleepy', name: 'Dreamy' },
 ];
 
+export const FACE_SHAPES = [
+  { id: 'soft', name: 'Soft & round' },
+  { id: 'oval', name: 'Oval' },
+  { id: 'heart', name: 'Heart' },
+  { id: 'defined', name: 'Defined' },
+];
+
 export const FRONT_STYLES = [
   { id: 'messy', name: 'Tousled' },
   { id: 'wispy', name: 'Wispy' },
@@ -83,6 +92,9 @@ export const BACK_STYLES = [
   { id: 'ponytail', name: 'Ponytail' },
   { id: 'bob', name: 'Bob' },
   { id: 'buns', name: 'Buns' },
+  { id: 'braid', name: 'Side braid' },
+  { id: 'pixie', name: 'Short layers' },
+  { id: 'halfup', name: 'Half-up' },
 ];
 
 export const MOUTHS = [
@@ -92,23 +104,27 @@ export const MOUTHS = [
 ];
 
 export const DEFAULT_HEAD = {
-  hair: 'ember', front: 'messy', back: 'wavybob', ahoge: true,
-  eyes: 'copper', eyeStyle: 'sparkle', mouth: 'smile', blush: 1, freckles: false, mark: 'none',
+  hair: 'raven', front: 'blunt', back: 'long', ahoge: false,
+  eyes: 'ruby', eyeStyle: 'soft', mouth: 'small', blush: 1, freckles: false, mark: 'none',
+  face: 'oval',
+  hairMotion:.55,hairStiffness:.65,hairDamping:.6,
 };
 
 const PINK_HEAD = { ...DEFAULT_HEAD, hair: 'sakura', front: 'wispy', back: 'twintails', eyes: 'amethyst' };
 
-export const DEFAULT_BODY = { height: 0.5, build: 0.5, skin: 'peach' };
+export const DEFAULT_BODY = { height: 0.5, skin: 'peach', archetype:'elegant', ...SHAPE_DEFAULTS, ...MOTION_DEFAULTS, ...NAIL_DEFAULTS };
 
 /** Ready-made heads. Applying one replaces the head, never the body or outfit. */
 export const HEADS = [
-  { id: 'bijou', name: 'Bijou', head: { ...DEFAULT_HEAD } },
+  { id: 'bijou', name: 'Bijou', head: { ...DEFAULT_HEAD, hair:'ember', front:'messy', back:'wavybob', eyes:'copper', eyeStyle:'sparkle', mouth:'smile', face:'soft' } },
   { id: 'sakura', name: 'Sakura', head: { ...PINK_HEAD } },
-  { id: 'hime', name: 'Hime', head: { ...DEFAULT_HEAD, hair: 'raven', front: 'blunt', back: 'long', ahoge: false, eyes: 'ruby', eyeStyle: 'soft', mouth: 'small' } },
+  { id: 'hime', name: 'Hime', head: { ...DEFAULT_HEAD, hair: 'raven', front: 'blunt', back: 'long', ahoge: false, eyes: 'ruby', eyeStyle: 'soft', mouth: 'small', face: 'oval' } },
   { id: 'sunny', name: 'Sunny', head: { ...DEFAULT_HEAD, hair: 'honey', front: 'swept', back: 'ponytail', eyes: 'sky', eyeStyle: 'sparkle', freckles: true } },
-  { id: 'luna', name: 'Luna', head: { ...DEFAULT_HEAD, hair: 'silver', front: 'split', back: 'wavy', ahoge: false, eyes: 'gold', eyeStyle: 'cat', mouth: 'cat', mark: 'R' } },
+  { id: 'luna', name: 'Luna', head: { ...DEFAULT_HEAD, hair: 'silver', front: 'split', back: 'wavy', ahoge: false, eyes: 'gold', eyeStyle: 'cat', mouth: 'cat', mark: 'R', face: 'heart' } },
   { id: 'mochi', name: 'Mochi', head: { ...DEFAULT_HEAD, hair: 'lilac', front: 'wispy', back: 'buns', eyes: 'rose', eyeStyle: 'sleepy', blush: 2 } },
-  { id: 'kiri', name: 'Kiri', head: { ...DEFAULT_HEAD, hair: 'mint', front: 'swept', back: 'bob', ahoge: false, eyes: 'teal', eyeStyle: 'cat', mouth: 'small' } },
+  { id: 'kiri', name: 'Kiri', head: { ...DEFAULT_HEAD, hair: 'mint', front: 'swept', back: 'pixie', ahoge: false, eyes: 'teal', eyeStyle: 'cat', mouth: 'small', face: 'defined' } },
+  { id: 'aurelia', name: 'Aurelia', head: { ...DEFAULT_HEAD, hair: 'honey', front: 'split', back: 'braid', eyes: 'emerald', face: 'oval', freckles: true } },
+  { id: 'noa', name: 'Noa', head: { ...DEFAULT_HEAD, hair: 'ash', front: 'swept', back: 'halfup', eyes: 'grey', face: 'heart' } },
 ];
 
 export const byId = (list, id, fallback = list[0]) => list.find((x) => x.id === id) || fallback;

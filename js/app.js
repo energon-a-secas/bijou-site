@@ -2,7 +2,7 @@
 // Wires the doll, her motion and her behaviour to the page. Keep under 50 lines.
 
 import { state, loadSaved, save, dollConfig } from './state.js';
-import { createDoll } from './doll.js';
+import { createAvatar } from './avatar.js';
 import { createMotion } from './motion.js';
 import { createFx } from './fx.js';
 import { createBehavior } from './behavior.js';
@@ -16,12 +16,13 @@ function init() {
   loadSaved(state);
   const info = visit(state);
   const stage = $('stage');
-  const doll = createDoll($('doll'));
+  const doll = createAvatar($('doll'));
   const fx = createFx({ stage, layer: $('fx'), bubble: $('bubble'), live: $('speech'), doll });
   let behavior = null;
   const motion = createMotion(doll, {
     bounds() {
-      const k = Math.min(stage.clientWidth / 400, (stage.clientHeight * 0.95) / 820) || 1;
+      const art = doll.svg;
+      const k = Math.min(art.clientWidth / 400, art.clientHeight / 820) || 1;
       const half = stage.clientWidth / k / 2 - 70;
       return { minX: -Math.max(0, half), maxX: Math.max(0, half) };
     },

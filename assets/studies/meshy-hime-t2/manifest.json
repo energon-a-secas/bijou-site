@@ -1,0 +1,83 @@
+{
+  "created": "2026-10-05",
+  "reference": "../meshy-hime-v1/reference.png",
+  "reference_prompt": "../meshy-hime-v1/reference-prompt.txt",
+  "reference_generator": "built-in image_gen",
+  "generation_parameters": {
+    "model_type": "smart-topology",
+    "ai_model": "meshy-t2",
+    "should_texture": true,
+    "texture_resolution": "4k",
+    "enable_pbr": true,
+    "target_polycount": 15000,
+    "pose_mode": "a-pose",
+    "target_formats": [
+      "glb"
+    ],
+    "multi_view_thumbnails": true
+  },
+  "models": {
+    "generated": {
+      "file": "generated.glb",
+      "sha256": "3cdb4f35c07fb32183fdb8bfa890759fc8eaf0fdb6131cd30b6941a59b6b8871",
+      "bytes": 15231108,
+      "task_id": "01a10c4b-26a3-77a1-a998-38e3b86e75b2",
+      "triangles": 15052,
+      "meshes": 1,
+      "materials": 1,
+      "skins": 0,
+      "joints": 0,
+      "morph_targets": 0,
+      "animations": []
+    },
+    "rigged": {
+      "file": "rigged.glb",
+      "sha256": "664841c9f217c580d8ae7f0435a9a02d14cfd1da825cad57eba2f443fd7df7a5",
+      "bytes": 15725948,
+      "task_id": "01a10c53-9bbb-75b4-beef-f123d681b55a",
+      "triangles": 15052,
+      "meshes": 1,
+      "materials": 1,
+      "skins": 1,
+      "joints": 24,
+      "morph_targets": 0,
+      "animations": [
+        "Armature|clip0|baselayer"
+      ]
+    },
+    "walking": {
+      "file": "walking.glb",
+      "sha256": "88f1b9463fcc3ac47e0ae212262509fc1ffe3bb68d3bb19d1c4342627676929d",
+      "bytes": 15706836,
+      "task_id": "01a10c53-9bbb-75b4-beef-f123d681b55a",
+      "triangles": 15052,
+      "meshes": 1,
+      "materials": 1,
+      "skins": 1,
+      "joints": 24,
+      "morph_targets": 0,
+      "animations": [
+        "Armature|walking_man|baselayer"
+      ]
+    }
+  },
+  "findings": {
+    "welded_connected_components": 24,
+    "largest_component_vertices": 6635,
+    "total_welded_vertices": 7917,
+    "separate_garments": false,
+    "independent_full_hairstyle": false,
+    "finger_joints": false,
+    "facial_morphs": false
+  },
+  "credits": {
+    "generation": 15,
+    "rigging": 5,
+    "total": 20
+  },
+  "integration_status": "editable study in dev/model-studio.html; production companion unchanged",
+  "validation": {
+    "model_studio": "../model-studio-check.json",
+    "topology": "topology-audit.json"
+  }
+}

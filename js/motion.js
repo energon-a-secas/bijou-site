@@ -28,6 +28,7 @@ export function createMotion(doll, hooks = {}) {
     action: null, drag: null, fall: null, blink: { next: 2.4, step: 0, at: 0 },
     reduced: prefersReducedMotion(), asleep: false,
   };
+  window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change',e=>{S.reduced=e.matches;});
 
   function retarget() {
     if (!doll.M) return;
@@ -57,6 +58,7 @@ export function createMotion(doll, hooks = {}) {
   }
 
   function poke(strength = 1) {
+    doll.impulse?.(strength);
     S.springs.ahoge.v += 420 * strength;
     S.springs.tailL.v += 80 * strength; S.springs.tailR.v -= 80 * strength;
   }
@@ -77,7 +79,8 @@ export function createMotion(doll, hooks = {}) {
 
   // ── The tick ─────────────────────────────────────────────
   function frameFor(dt) {
-    const reduce = S.reduced ? 0.3 : 1;
+    const reduce = doll.editing ? 0 : S.reduced ? 0.3 : 1;
+    if(doll.editing){S.action=null;S.fall=null;S.drag=null;S.dragY=0;S.lean.r=0;S.lean.v=0;}
     const t = S.t;
     const k = ease(dt, S.drag ? 12 : 7);
     for (const [name, tg] of Object.entries(S.target.bones)) {
@@ -85,13 +88,14 @@ export function createMotion(doll, hooks = {}) {
       c.a += ((tg.a || 0) - (c.a || 0)) * k;
       c.sx = (c.sx ?? 1) + ((tg.sx ?? 1) - (c.sx ?? 1)) * k;
       c.sy = (c.sy ?? 1) + ((tg.sy ?? 1) - (c.sy ?? 1)) * k;
+      for(const key of ['tx','ty','tz','px','py','pz','plant','seat'])if(key in tg)c[key]=(c[key]??tg[key])+(tg[key]-(c[key]??tg[key]))*k;
     }
     S.cur.rootY += (S.target.rootY - S.cur.rootY) * k;
 
     const add = S.pose.loop && !S.reduced ? S.pose.loop(t) : {};
     const bones = {};
     for (const [name, c] of Object.entries(S.cur.bones)) {
-      bones[name] = { a: c.a + (add[name] || 0), sx: c.sx, sy: c.sy };
+      bones[name] = { ...c, a: c.a + (add[name] || 0), sx: c.sx, sy: c.sy };
     }
     const seated = !!S.pose.prop;
     const breath = Math.sin((t * Math.PI * 2) / 3.8);
@@ -109,7 +113,7 @@ export function createMotion(doll, hooks = {}) {
     }
 
     let rootY = S.cur.rootY + S.dragY + (add.rootY || 0);
-    let sx = 1, sy = 1;
+    let sx = 1, sy = 1, turnY = 0;
     if (S.action) {
       const p = clamp((t - S.action.t0) / S.action.dur, 0, 1);
       if (S.action.kind === 'twirl') {
@@ -117,6 +121,7 @@ export function createMotion(doll, hooks = {}) {
         else {
           const e = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
           sx = Math.cos(Math.PI * 2 * e);
+          turnY = Math.PI * 2 * e;
           bones.skirt.sx = (bones.skirt.sx || 1) * (1 + 0.24 * Math.sin(Math.PI * p));
         }
       } else if (S.action.kind === 'hop') {
@@ -127,7 +132,7 @@ export function createMotion(doll, hooks = {}) {
       }
       if (p >= 1) { const done = S.action.kind; S.action = null; hooks.onAction?.(done); }
     }
-    return { bones, root: { x: S.rootX, y: rootY, sx, sy } };
+    return { bones, root: { x: S.rootX, y: rootY, sx, sy, turnY,airborne:!!(S.drag||S.fall||S.action?.kind==='hop') } };
   }
 
   function physics(dt, mats) {

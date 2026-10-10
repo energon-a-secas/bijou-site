@@ -3,11 +3,11 @@
 // (chin at y 244). Expressions are data; blinking and talking are CSS states on
 // the doll root, so neither rebuilds markup.
 
-import { f1, smooth, line, shape, fillOnly, stroke, darken, lighten, heart } from './paint.js';
+import { f1, smooth, line, shape, fillOnly, stroke, darken, lighten, heart, cel } from './paint.js';
 
-const EYE_C = { L: { x: 178, y: 206 }, R: { x: 222, y: 206 } };
-const EYE_K = 1.12;
-const LASH = '#2b1631';
+const EYE_C = { L: { x: 178, y: 201 }, R: { x: 222, y: 201 } };
+const EYE_K = 1.02;
+const LASH = '#39242b';
 
 /** Named expressions. eyes, mouth, brows, blush, extra. */
 export const EXPR = {
@@ -30,17 +30,17 @@ export const EXPR = {
 // ── Shape tables (u outward, v down, around the eye centre) ──
 
 const UPPER = {
-  sparkle: [[-13, -2], [-7, -11], [2, -14], [10, -11.5], [15.5, -6]],
+  sparkle: [[-13, -1], [-7, -9], [2, -12.5], [10, -10.5], [15.5, -6]],
   soft: [[-13, -4], [-6, -12], [3, -13], [11, -9], [15, -1]],
   cat: [[-13, 0], [-6, -8.5], [3, -12], [11, -12.5], [16, -10]],
 };
 const LOWER = {
-  sparkle: [[15, -5], [12, 5], [5, 11], [-4, 11], [-10, 6]],
+  sparkle: [[15, -5], [12, 4], [5, 9], [-4, 9], [-10, 5]],
   soft: [[15, -1], [11, 7], [4, 11], [-4, 10.5], [-10, 5]],
   cat: [[16, -10], [13, 1], [6, 9], [-3, 9.5], [-10, 5]],
 };
 const IRIS = {
-  sparkle: { u: 1, v: 1.5, rx: 10, ry: 13 },
+  sparkle: { u: 1, v: 0.5, rx: 9.1, ry: 12 },
   soft: { u: 0.5, v: 2, rx: 10, ry: 12.5 },
   cat: { u: 1.5, v: 0.5, rx: 9.4, ry: 12 },
 };
@@ -71,10 +71,10 @@ function openEye(style, open, side, eye, uid, variant) {
       `<ellipse cx="${f1(ix - 3)}" cy="${f1(iy - 3)}" rx="2.6" ry="2" fill="#fff" opacity=".9"/>`;
   } else {
     iris = `<ellipse cx="${f1(ix)}" cy="${f1(iy)}" rx="${f1(ir.rx * small)}" ry="${f1(ir.ry * small)}" fill="url(#bj-iris-${uid})" stroke="${darken(eye, 0.5)}" stroke-width="1"/>` +
-      `<ellipse cx="${f1(ix)}" cy="${f1(iy + 1)}" rx="${f1(4.4 * small)}" ry="${f1(6.2 * small)}" fill="${darken(eye, 0.66)}"/>` +
+      `<ellipse cx="${f1(ix)}" cy="${f1(iy)}" rx="${f1(3.5 * small)}" ry="${f1(6 * small)}" fill="${darken(eye, 0.76)}"/>` +
       `<path d="M${f1(ix - 6.5 * small)} ${f1(iy + 7 * small)}Q${f1(ix)} ${f1(iy + 12.5 * small)} ${f1(ix + 6.5 * small)} ${f1(iy + 7 * small)}" fill="none" stroke="${lighten(eye, 0.55)}" stroke-width="2.2" stroke-linecap="round" opacity=".8"/>` +
-      `<ellipse cx="${f1(ix - 3.8)}" cy="${f1(iy - 4.6)}" rx="3.6" ry="4.6" fill="#fff"/>` +
-      `<circle cx="${f1(ix + 4.2)}" cy="${f1(iy + 6)}" r="1.9" fill="#fff"/>` +
+      `<ellipse cx="${f1(ix - 3.8)}" cy="${f1(iy - 4.6)}" rx="2.6" ry="3.6" fill="#fffaf2"/>` +
+      `<circle cx="${f1(ix + 4.2)}" cy="${f1(iy + 6)}" r="1.4" fill="#fffaf2"/>` +
       (style === 'sparkle' ? `<circle cx="${f1(ix + 5)}" cy="${f1(iy - 6)}" r="1.1" fill="#fff" opacity=".9"/>` : '');
   }
   const lashD = smooth(up.map(p), false);
@@ -85,9 +85,9 @@ function openEye(style, open, side, eye, uid, variant) {
     `<path d="${white}" fill="#fffafc"/>` +
     `<g clip-path="url(#${clip})"><g class="bj-iris" data-side="${side}">${iris}</g>` +
     `<path d="${smooth(up.map(p), false)}" fill="none" stroke="${darken(eye, 0.3)}" stroke-width="7" opacity=".22"/></g>` +
-    stroke(lashD, LASH, 4.2) + `<path d="${wing}" fill="${LASH}"/>` +
+    stroke(lashD, LASH, 2.8) + `<path d="${wing}" fill="${LASH}"/>` +
     stroke(line([[up[3][0], up[3][1] - 1], [up[3][0] + 2.5, up[3][1] - 5.5]].map(p)) + line([[up[4][0] - 1.5, up[4][1] - 1], [up[4][0] + 4.5, up[4][1] - 6.5]].map(p)), LASH, 1.6) +
-    stroke(lower, LASH, 1.5, 'opacity=".85"') +
+    stroke(lower, LASH, 0.9, 'opacity=".65"') +
     (open > 0.6 ? stroke(crease, LASH, 1, 'opacity=".38"') : '');
 }
 
@@ -181,15 +181,16 @@ export function browsPiece(hair, expr) {
 
 // ── Pieces ──────────────────────────────────────────────────
 
-const FACE_PTS = [[200, 132], [234, 140], [251, 170], [252, 197], [242, 222], [223, 241], [207, 249], [200, 250], [193, 249], [177, 241], [158, 222], [148, 197], [149, 170], [166, 140]];
+const FACE_PTS = [[200, 128], [232, 138], [250, 167], [249, 195], [239, 218], [222, 232], [206, 242], [200, 244], [194, 242], [178, 232], [161, 218], [151, 195], [150, 167], [168, 138]];
 
-export function facePieces(skin) {
-  const face = smooth(FACE_PTS);
+export function facePieces(skin, head = {}) {
+  const width={soft:1.045,oval:.975,heart:1.01,defined:1}[head.face]||1;
+  const face = smooth(FACE_PTS.map(([x,y])=>[200+(x-200)*width,y]));
   const ear = (x, s) => shape(`M${x} 196q${s * 8} -2 ${s * 8} 8q0 10 ${-s * 7} 11z`, skin.base, skin.line, 1.8) +
     stroke(`M${x + s * 1.5} 200q${s * 4} 0 ${s * 4} 5`, skin.line, 1, 'opacity=".5"');
   return [
     { bone: 'head', z: 399, depth: -0.15, svg: ear(150, -1) + ear(250, 1) },
-    { bone: 'head', z: 400, depth: 0, svg: shape(face, skin.base, skin.line, 2.2) },
+    { bone: 'head', z: 400, depth: 0, svg: cel(face, skin.base, skin.line, 1.4, { dx: -4, dy: -2, shadow: skin.shadow }) + fillOnly('M160 212Q173 230 194 239Q176 234 162 221Z', skin.shadow, 'opacity=".35"') },
   ];
 }
 
@@ -202,8 +203,8 @@ export function featuresPiece(head, skin, eye, exprName, uid) {
     `<stop offset="1" stop-color="${lighten(eye, 0.5)}"/></linearGradient>`;
   let svg = `<defs>${grad}</defs>`;
   if (blushLevel) {
-    const op = blushLevel > 1 ? 1 : 0.6;
-    svg += `<ellipse cx="174" cy="225" rx="12" ry="6.5" fill="url(#bj-blush)" opacity="${op}"/><ellipse cx="226" cy="225" rx="12" ry="6.5" fill="url(#bj-blush)" opacity="${op}"/>`;
+    const op = blushLevel > 1 ? 0.8 : 0.38;
+    svg += `<ellipse cx="174" cy="219" rx="12" ry="5.5" fill="url(#bj-blush)" opacity="${op}"/><ellipse cx="226" cy="219" rx="12" ry="5.5" fill="url(#bj-blush)" opacity="${op}"/>`;
     if (blushLevel > 1) svg += stroke('M168 226l3-4M173 226l3-4M178 226l3-4M222 226l3-4M227 226l3-4M232 226l3-4', '#ff5f8a', 1.1, 'opacity=".6"');
   }
   if (head.freckles) {
@@ -214,9 +215,9 @@ export function featuresPiece(head, skin, eye, exprName, uid) {
     svg += `<circle cx="${head.mark === 'L' ? 164 : 236}" cy="219" r="1.3" fill="${skin.line}"/>`;
   }
   svg += eyePair(head, eye, expr, uid);
-  svg += stroke('M201.4 223.4q1.3 2.6-1.4 3.6', skin.deep, 1.4);
+  svg += fillOnly('M201 215L199 221L202 221Z', skin.shadow) + stroke('M201.4 218.4q1.3 2.1-1.4 2.6', skin.deep, 0.95);
   const rest = expr.mouth || head.mouth;
-  svg += `<g class="bj-mouth-rest">${mouth(rest, skin)}</g><g class="bj-mouth-talk">${mouth('open', skin)}</g>`;
+  svg += `<g transform="translate(0 -4)"><g class="bj-mouth-rest">${mouth(rest, skin)}</g><g class="bj-mouth-talk">${mouth('open', skin)}</g></g>`;
   if (expr.extra === 'sweat') {
     svg += `<path d="M247 176q-5 9 0 12q5-3 0-12z" fill="#bfe6ff" stroke="#6aa9d6" stroke-width="1.2"/>`;
   }

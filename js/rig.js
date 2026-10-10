@@ -7,8 +7,8 @@ export const VIEW = { w: 400, h: 820, cx: 200, ground: 790 };
 /** Head art is drawn with the chin here; the head bone shifts it onto the body. */
 export const HEAD_CHIN = 244;
 
-/** The head is drawn large and scaled onto the body: about six and a half heads tall. */
-export const HEAD_SCALE = 0.9;
+/** Adult anime figure proportions, approximately seven heads tall. */
+export const HEAD_SCALE = 0.76;
 
 const clamp01 = (n) => Math.min(1, Math.max(0, Number.isFinite(n) ? n : 0.5));
 
@@ -30,10 +30,11 @@ export function measure(body = {}) {
   const leg = 0.94 + 0.12 * clamp01(body.height);
   const tor = 0.97 + 0.06 * clamp01(body.height);
   const w = 0.9 + 0.2 * clamp01(body.build);
+  const shape=k=>1+(clamp01(body[k])-.5)*.55;
   const ground = VIEW.ground;
   const ankleY = ground - 36;
-  const shin = 160 * leg;
-  const thigh = 168 * leg;
+  const shin = 177 * leg;
+  const thigh = 180 * leg;
   const kneeY = ankleY - shin;
   const hipY = kneeY - thigh;
   const pelvisY = hipY - 8;
@@ -41,33 +42,34 @@ export function measure(body = {}) {
   const chestY = waistY - 64 * tor;
   const shoulderY = chestY - 42 * tor;
   const chinY = shoulderY - 24;
-  const upperArm = 86 * tor;
-  const foreArm = 80 * tor;
+  const upperArm = 91 * tor;
+  const foreArm = 84 * tor;
 
   // A young adult's silhouette: shoulders, a soft chest line, waist, hips.
   const torso = [
-    [shoulderY - 8, 10], [shoulderY - 2, 24], [shoulderY + 4, 39], [shoulderY + 12, 41],
-    [shoulderY + 24, 35 * (0.95 + 0.05 * w)], [chestY - 6, 34 * w], [chestY + 4, 33.5 * w], [chestY + 20, 28.5 * w],
-    [waistY, 25 * w], [waistY + 26, 33 * w], [hipY - 4, 38 * w], [hipY + 14, 37 * w],
+    [shoulderY - 8, 10.5], [shoulderY - 2, 27], [shoulderY + 4, 45], [shoulderY + 12, 46],
+    [shoulderY + 24, 40 * (0.95 + 0.05 * w)], [chestY - 6, 42 * w], [chestY + 4, 41 * w], [chestY + 20, 35 * w],
+    [waistY, 28 * w], [waistY + 26, 38 * w], [hipY - 4, 47 * w], [hipY + 14, 45 * w],
   ];
 
   const side = (fn) => ({ L: fn(-1), R: fn(1) });
-  const shoulder = side((s) => ({ x: 200 + s * 43, y: shoulderY + 7 }));
-  const elbow = side((s) => ({ x: 200 + s * 43, y: shoulderY + 7 + upperArm }));
-  const wrist = side((s) => ({ x: 200 + s * 43, y: shoulderY + 7 + upperArm + foreArm }));
-  const hip = side((s) => ({ x: 200 + s * 19.5 * w, y: hipY }));
-  const knee = side((s) => ({ x: 200 + s * (14 + 2 * w), y: kneeY }));
-  const ankle = side((s) => ({ x: 200 + s * (13 + 1.5 * w), y: ankleY }));
+  const shoulderX = 50 * (0.9 + 0.1 * w)*shape('shoulders');
+  const shoulder = side((s) => ({ x: 200 + s * shoulderX, y: shoulderY + 7 }));
+  const elbow = side((s) => ({ x: 200 + s * shoulderX, y: shoulderY + 7 + upperArm }));
+  const wrist = side((s) => ({ x: 200 + s * shoulderX, y: shoulderY + 7 + upperArm + foreArm }));
+  const hip = side((s) => ({ x: 200 + s * 23 * w, y: hipY }));
+  const knee = side((s) => ({ x: 200 + s * (17 + 2 * w), y: kneeY }));
+  const ankle = side((s) => ({ x: 200 + s * (16 + 1.5 * w), y: ankleY }));
 
   return Object.freeze({
     ground, ankleY, kneeY, hipY, pelvisY, waistY, chestY, shoulderY, chinY,
-    headTop: chinY - 116 * HEAD_SCALE, headDY: chinY - HEAD_CHIN, w, leg, tor,
+    headTop: chinY - 135 * HEAD_SCALE, headDY: chinY - HEAD_CHIN, w, leg, tor,
     upperArm, foreArm, thigh, shin,
     shoulder, elbow, wrist, hip, knee, ankle,
-    torsoHW: (y) => lerpTable(torso, y),
-    thighHW: (t) => (21 - 10.5 * t) * (0.8 + 0.2 * w),            // t: 0 hip .. 1 knee
-    shinHW: (t) => (t < 0.28 ? 10.5 + 1.9 * (t / 0.28) : 12.4 - 6.4 * ((t - 0.28) / 0.72)) * (0.85 + 0.15 * w),
-    armHW: (t) => (10 - 4.4 * t) * (0.88 + 0.12 * w),             // t: 0 shoulder .. 1 wrist
+    torsoHW: (y) => lerpTable(torso, y)*lerpTable([[shoulderY-8,1],[shoulderY+12,shape('shoulders')],[chestY,shape('torso')],[waistY,shape('waist')],[hipY,shape('hips')]],y),
+    thighHW: (t) => (26 - 14 * t) * (0.8 + 0.2 * w)*shape('legs'),
+    shinHW: (t) => (t < 0.28 ? 12 + 3.4 * (t / 0.28) : 15.4 - 8.5 * ((t - 0.28) / 0.72)) * (0.85 + 0.15 * w)*(1+(shape('legs')-1)*(1-t)),
+    armHW: (t) => (12.2 - 5.9 * t) * (0.88 + 0.12 * w)*(1+(shape('arms')-1)*(1-t)),
   });
 }
 
@@ -187,7 +189,7 @@ export function landmark(M, name, s) {
     case 'navel': return { x: 200, y: M.waistY + 14 };
     case 'waist': return { x: 200 + s * M.torsoHW(M.waistY), y: M.waistY };
     case 'hip': return { x: 200 + s * M.torsoHW(M.hipY), y: M.hipY };
-    case 'shoulder': return { x: 200 + s * 43, y: M.shoulderY };
+    case 'shoulder': return M.shoulder[s < 0 ? 'L' : 'R'];
     default: return { x: 200, y: M.chestY };
   }
 }

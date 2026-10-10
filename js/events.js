@@ -5,19 +5,23 @@ import { state, save, dollConfig, cleanHead } from './state.js';
 import { itemById, MILESTONES } from './catalog.js';
 import { equip, unequip, unlock, isWorn, canAfford } from './wardrobe.js';
 import { HEADS } from './looks.js';
+import { COLLECTIONS } from './collections.js';
 import { LINES } from './lines.js';
 import { renderHearts, renderCategories, renderItems, renderWearing, renderWish } from './render.js';
-import { renderStyle, renderPoses, renderLooks, renderStats } from './panels.js';
-import { drawBackdrop } from './stage.js';
+import { renderStyle, renderPoses, renderLooks, renderStats, renderCollections } from './panels.js';
+import { drawBackdrop, BACKDROPS } from './stage.js';
 import { bindDnd } from './dnd.js';
 import { popOut, canPopOut, setCompanionView, snapshot, inPip } from './companion.js';
 import { openDialog, bindDialog } from './dialogs.js';
 import { itemThumb } from './thumbs.js';
 import { showToast, escHtml, $ } from './utils.js';
+import { createBodyEditor } from './body-editor.js';
+import { cleanRenderStyle } from './render-style.js';
+import { createClothingEditor } from './clothing-editor.js';
 
 let app = null;
 
-const rebuild = () => { app.doll.build(dollConfig(state)); app.motion.retarget(); renderWearing(state); };
+const rebuild = () => { app.doll.build(dollConfig(state)); app.motion.retarget(); renderWearing(state); renderCollections(state);app.clothingEditor?.sync(); };
 function refreshWardrobe() { if (renderItems(state)) save(state); renderCategories(state); }
 
 /** Hooks the behaviour engine calls back into the page with. */
@@ -39,6 +43,8 @@ export function makeHooks() {
 export function renderAll(current = 'stand') {
   renderHearts(state); refreshWardrobe(); renderWearing(state); renderWish(state);
   renderStyle(state); renderPoses(state, current); renderLooks(state); renderStats(state);
+  renderCollections(state);
+  app?.bodyEditor?.sync();
   drawBackdrop($('backdrop'), state.backdrop);
 }
 
@@ -46,6 +52,7 @@ function putOn(id) {
   const r = equip(state, id);
   if (!r.ok) return;
   rebuild(); refreshWardrobe();
+  app.clothingEditor?.sync(id);
   app.behavior.dressed(r.item);
   save(state);
 }
@@ -88,6 +95,7 @@ function bindTabs() {
       $(t.getAttribute('aria-controls')).hidden = !on;
     }
     state.ui.tab = tab.id.replace('tab-', '');
+    if(state.ui.tab!=='body'&&app.bodyEditor?.editing)app.bodyEditor.setEditing(false);
     if (state.ui.tab === 'looks') renderStats(state);
   };
   for (const t of tabs) {
@@ -110,9 +118,11 @@ function setPath(path, val) {
 function bindStyle() {
   const box = $('styleControls');
   box.addEventListener('click', (e) => {
+    const finish=e.target.closest('[data-render-style]')?.dataset.renderStyle;
     const set = e.target.closest('[data-set]');
     const head = e.target.closest('[data-head]');
-    if (set) setPath(set.dataset.set, set.dataset.val);
+    if(finish){state.renderStyle=cleanRenderStyle(finish);rebuild();}
+    else if (set) setPath(set.dataset.set, set.dataset.val);
     else if (head) { state.head = cleanHead(HEADS.find((h) => h.id === head.dataset.head)?.head); rebuild(); }
     else return;
     renderStyle(state); refreshWardrobe(); save(state);
@@ -137,6 +147,9 @@ function bindLooks() {
     state.looks.push({
       id: `l${Date.now().toString(36)}`, name: field.value.trim().slice(0, 24) || `Look ${state.looks.length + 1}`,
       body: { ...state.body }, head: { ...state.head }, outfit: { ...state.outfit }, backdrop: state.backdrop,
+      renderStyle:state.renderStyle,
+      garments:structuredClone(state.garments),
+      preview: app.doll.capture({height:300,mime:'image/webp'}) || null,
     });
     field.value = '';
     renderLooks(state); save(state);
@@ -148,7 +161,7 @@ function bindLooks() {
     if (wear) {
       const l = state.looks.find((x) => x.id === wear.dataset.look);
       if (!l) return;
-      Object.assign(state, { body: { ...l.body }, head: { ...l.head }, outfit: Object.fromEntries(Object.entries(l.outfit).filter(([, id]) => state.unlocked.has(id))), backdrop: l.backdrop });
+      Object.assign(state, { body: { ...l.body }, head: { ...l.head }, outfit: Object.fromEntries(Object.entries(l.outfit).filter(([, id]) => state.unlocked.has(id))), backdrop: l.backdrop,renderStyle:cleanRenderStyle(l.renderStyle),garments:structuredClone(l.garments||{}) });
       rebuild(); renderAll(app.motion.pose.id); save(state);
       app.behavior.dressed({ tags: [], slot: 'look', kind: 'look' });
     } else if (drop) {
@@ -162,7 +175,22 @@ function bindLooks() {
 
 export function bindEvents(ctx) {
   app = ctx;
+  app.bodyEditor=createBodyEditor({...ctx,state,onChanged:()=>renderCollections(state)});
+  app.clothingEditor=createClothingEditor({state,onEquip:putOn,onChanged:()=>{rebuild();refreshWardrobe();}});
   bindTabs(); bindStyle(); bindLooks();
+  $('collections').addEventListener('click', (e) => {
+    const id = e.target.closest('[data-collection]')?.dataset.collection;
+    const collection = COLLECTIONS.find(c => c.id === id);
+    if (!collection) return;
+    state.head = cleanHead(collection.head);
+    state.outfit = { ...collection.outfit };
+    state.garments={...state.garments};for(const item of Object.values(collection.outfit))delete state.garments[item];
+    state.stats.outfits += 1;
+    rebuild(); renderAll(collection.pose); save(state);
+    app.behavior.dressed({ tags: ['party', 'elegant'], slot: 'look', kind: 'look' });
+    app.behavior.choosePose(collection.pose);
+    showToast(`${collection.name} is on. Make it yours in the wardrobe.`);
+  });
   bindDialog($('unlockDialog'), $('items'));
   bindDialog($('companionDialog'), $('popOut'));
 
@@ -189,6 +217,9 @@ export function bindEvents(ctx) {
     const b = e.target.closest('[data-remove]');
     if (b && !dnd.swallowClick()) takeOff(b.dataset.remove);
   });
+  $('clearOutfit').addEventListener('click', () => {
+    state.outfit = {}; rebuild(); refreshWardrobe(); app.behavior.undressed(); save(state);
+  });
   $('unlockConfirm').addEventListener('click', () => {
     const it = pending;
     if (!it || !canAfford(state, it) || !unlock(state, it.id)) return;
@@ -211,12 +242,19 @@ export function bindEvents(ctx) {
     drawBackdrop($('backdrop'), state.backdrop);
     renderPoses(state, app.motion.pose.id); save(state);
   });
+  $('roomSwitch').addEventListener('click', () => {
+    const i = BACKDROPS.findIndex(b => b.id === state.backdrop);
+    state.backdrop = BACKDROPS[(i + 1) % BACKDROPS.length].id;
+    drawBackdrop($('backdrop'), state.backdrop);
+    renderPoses(state, app.motion.pose.id); save(state);
+  });
 
   $('stage').querySelector('.stage-tools').addEventListener('click', (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'twirl') app.behavior.twirl();
     if (act === 'pat') app.behavior.pat();
     if (act === 'ask') app.behavior.ask();
+    if (act === 'shape') app.bodyEditor.setEditing(true);
   });
 
   $('popOut').addEventListener('click', async () => {
@@ -231,7 +269,7 @@ export function bindEvents(ctx) {
     $('companionDialog').close();
   });
   $('snapshot').addEventListener('click', async () => {
-    const ok = await snapshot({ backdrop: $('backdrop'), doll: app.doll.svg, name: state.name }).catch(() => false);
+    const ok = await snapshot({ backdrop: $('backdrop'), doll: app.doll.svg, avatar: app.doll, name: state.name }).catch(() => false);
     if (ok) app.behavior.saw(LINES.snapshot); else showToast('The picture could not be saved in this browser.');
   });
 }

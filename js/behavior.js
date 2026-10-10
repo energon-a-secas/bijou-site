@@ -7,6 +7,7 @@ import { POSES } from './poses.js';
 import { LINES, WISHES, pick } from './lines.js';
 import { earn, checkMilestones, tagCount } from './wardrobe.js';
 import { CATALOG } from './catalog.js';
+import { archetypeFor } from './archetypes.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const IDLE = [
@@ -19,6 +20,7 @@ export function createBehavior({ state, doll, motion, fx, hooks }) {
   let lastInteract = now(), asleep = false, sleepy = false, sulkUntil = 0;
   let nextIdle = now() + rand(9000, 15000), nextWishAt = now() + 50000, nextZ = 0, lastMinute = now();
   let lastSay = 0, pokes = [], lastWishTag = null, curPose = null, timer = 0;
+  let editing = false;
 
   const vars = () => ({ name: state.name });
   function say(list, chance = 1, extra = {}, force = false) {
@@ -43,12 +45,13 @@ export function createBehavior({ state, doll, motion, fx, hooks }) {
 
   // ── Pose and face ────────────────────────────────────────
   function poseNow(t) {
+    if(editing)return 'shape';
     if (temp && t < temp.until) return temp.pose;
     temp = null;
     if (asleep) return 'sleep';
     if (sleepy) return 'sit';
     if (t < userUntil) return base;
-    return 'stand';
+    return archetypeFor(state.body.archetype).pose;
   }
 
   function apply() {
@@ -66,15 +69,18 @@ export function createBehavior({ state, doll, motion, fx, hooks }) {
 
   // ── Idle, sleep, time ────────────────────────────────────
   function doIdle() {
-    const total = IDLE.reduce((n, [, w]) => n + w, 0);
+    const choices=archetypeFor(state.body.archetype).idle||IDLE;
+    const total = choices.reduce((n, [, w]) => n + w, 0);
     let r = Math.random() * total, kind = 'stretch';
-    for (const [k, w] of IDLE) { if ((r -= w) <= 0) { kind = k; break; } }
+    for (const [k, w] of choices) { if ((r -= w) <= 0) { kind = k; break; } }
     switch (kind) {
       case 'stretch': holdPose('stretch', 2600); say(['Mmmh~', '*stretch*'], 0.4); break;
       case 'behind': holdPose('behind', 6000); fx.burst('note', 2, 236, 120); say(LINES.idleHum, 0.4); break;
       case 'think': holdPose('think', 4200); say(LINES.idleThink, 0.5); break;
       case 'admire': holdPose('admire', 3000); say(LINES.idleOutfit, 0.5); break;
       case 'shy': holdPose('shy', 4000); break;
+      case 'wave': holdPose('wave', 2200); break;
+      case 'hips': holdPose('hips', 3600); break;
       case 'sit': holdPose('sit', 16000); break;
       case 'hum': fx.burst('note', 3, 236, 120); say(LINES.idleHum, 0.7); break;
       default: twirl(true);
@@ -82,6 +88,7 @@ export function createBehavior({ state, doll, motion, fx, hooks }) {
   }
 
   function decide() {
+    if(editing)return;
     const t = now();
     const visible = stageVisible();
     if (visible && t - lastMinute >= 60000) {
@@ -97,7 +104,7 @@ export function createBehavior({ state, doll, motion, fx, hooks }) {
     }
     if (asleep && t > nextZ) { fx.burst('zz', 1, 236, 112); nextZ = t + 2600; }
     if (!asleep && !sleepy && !temp && t > userUntil && t > nextIdle && !motion.busy) {
-      doIdle(); nextIdle = t + rand(9000, 20000);
+      doIdle(); nextIdle = t + rand(9000, 20000)/archetypeFor(state.body.archetype).tempo;
     }
     if (!state.wish && !asleep && t > nextWishAt) makeWish();
     apply();
@@ -272,6 +279,7 @@ export function createBehavior({ state, doll, motion, fx, hooks }) {
   }
 
   return {
+    setEditing(on){editing=on;temp=null;exprTemp=null;interacted();apply();},
     start, interacted, pat, poke, lifted, landed, dressed, undressed, unlocked, choosePose, twirl, ask,
     renamed: () => say(LINES.named, 1, {}, true),
     saw: (list) => say(list, 1, {}, true),

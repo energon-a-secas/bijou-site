@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Bijou · Model studio</title>
+  <link rel="stylesheet" href="./model-studio.css">
+</head>
+<body>
+  <main>
+    <section id="viewport" aria-label="Interactive character preview">
+      <canvas tabindex="0" aria-label="Drag to rotate the model. Scroll or pinch to zoom. Arrow keys rotate; plus and minus zoom."></canvas>
+      <div class="stage-heading"><a href="../">← Bijou</a><span>MODEL STUDIO <small>Preview</small></span></div>
+      <div class="camera-bar" aria-label="Camera controls">
+        <button data-view="front">Front</button><button data-view="side">Side</button><button data-view="back">Back</button><button data-view="three">¾ view</button><button id="full-figure">Full figure</button>
+      </div>
+      <p class="stage-hint">Drag to rotate · scroll or pinch to zoom</p>
+      <div id="loading" role="status">Preparing your model…</div>
+    </section>
+    <aside aria-label="Model customization">
+      <header><p class="eyebrow" id="character-label">HIME / OVAL</p><h1>Make her your own.</h1><p class="intro">Shape every feature. Explore her look in the light.</p></header>
+      <label class="select-label" for="candidate">Starting model</label>
+      <select id="candidate"><option value="sculpt">Hime · detailed mesh</option><option value="t2">Hime · light mesh</option><option value="heroine">Game heroine · original face</option></select>
+      <p class="small" id="model-detail">Detailed body · anime face · rigged</p>
+      <div class="look-starters" aria-label="Character style starters"><button data-starter="figurine">Figurine</button><button data-starter="hime">Hime</button><button data-starter="heroine">Game heroine</button><button data-starter="fantasy">Fantasy realism</button></div>
+      <div class="studio-tabs" role="tablist" aria-label="Customize">
+        <button role="tab" id="studio-tab-body" data-panel="body" aria-controls="editor" aria-selected="true">Body</button>
+        <button role="tab" id="studio-tab-face" data-panel="face" aria-controls="face-editor" aria-selected="false" tabindex="-1">Face</button>
+        <button role="tab" id="studio-tab-hair" data-panel="hair" aria-controls="hair-editor" aria-selected="false" tabindex="-1">Hair</button>
+        <button role="tab" id="studio-tab-style" data-panel="style" aria-controls="style-editor" aria-selected="false" tabindex="-1">Style</button>
+        <button role="tab" id="studio-tab-clothes" data-panel="clothes" aria-controls="clothes-editor" aria-selected="false" tabindex="-1">Clothes</button>
+      </div>
+      <div class="edit-toolbar"><label><input type="checkbox" id="compare"> Compare base</label><div class="history"><button id="undo" disabled aria-label="Undo customization">↶</button><button id="redo" disabled aria-label="Redo customization">↷</button></div></div>
+      <fieldset id="editor" role="tabpanel" aria-labelledby="studio-tab-body" disabled>
+        <legend class="sr-only">Shape controls</legend>
+        <div class="section-heading"><h2>A starting silhouette</h2><button id="reset" class="text-button">Reset body</button></div>
+        <div id="presets" class="presets"></div>
+        <div class="section-heading"><h2>Refine a region</h2></div>
+        <label class="sr-only" for="region">Body region</label><select id="region"></select>
+        <p id="region-hint" class="small"></p>
+        <div id="controls"></div>
+        <div class="edit-actions"><button id="region-reset" class="text-button">Reset region</button></div>
+      </fieldset>
+      <fieldset id="face-editor" role="tabpanel" aria-labelledby="studio-tab-face" hidden disabled>
+        <legend class="sr-only">Face and adult age appearance</legend>
+        <div class="section-heading"><h2>Adult appearance</h2><button id="reset-face" class="text-button">Reset face</button></div>
+        <div id="ages" class="age-choices" aria-label="Adult age appearance"></div>
+        <p class="small">Age changes facial definition independently of body size.</p>
+        <label class="select-label" for="face-style">Face style</label><select id="face-style"></select>
+        <p id="face-hint" class="small"></p>
+        <label class="control" for="face-strength"><span class="control-line">Definition strength<output id="face-strength-value" for="face-strength"></output></span><input id="face-strength" type="range" min="0" max="1" step=".01" value="1"></label>
+        <details id="portrait-library"><summary>Portrait starts</summary><div id="portrait-starts" class="portrait-starts"></div><button id="vary-portrait" class="text-button">Create a variation</button><p class="small">A new face and palette. Your body and outfit stay with her; variations keep the selected adult age.</p></details>
+        <div class="section-heading"><h2>Refine a feature</h2><button id="reset-face-region" class="text-button">Reset feature</button></div>
+        <label class="sr-only" for="face-region">Face region</label><select id="face-region"></select>
+        <p id="face-region-hint" class="small"></p><div id="face-controls"></div>
+        <div class="edit-actions"><label><input id="face-close-up" type="checkbox" checked> Follow selected feature</label><button id="inspect-feature" class="text-button">Frame feature</button></div>
+        <div class="section-heading"><h2>Expression &amp; gaze</h2></div>
+        <label class="select-label" for="expression">Expression</label><select id="expression"></select>
+        <div class="checks"><label><input type="checkbox" id="animated-eyes"> Movable eyes</label><label><input type="checkbox" id="auto-blink"> Natural blinking</label></div>
+        <label class="control" for="gaze-x"><span class="control-line">Look left / right<output id="gaze-x-value" for="gaze-x"></output></span><input id="gaze-x" type="range" min="-1" max="1" step=".01" value="0"></label>
+        <label class="control" for="gaze-y"><span class="control-line">Look down / up<output id="gaze-y-value" for="gaze-y"></output></span><input id="gaze-y" type="range" min="-1" max="1" step=".01" value="0"></label>
+        <div class="checks"><label><input type="checkbox" id="gaze-follow"> Follow the pointer</label><label><input type="checkbox" id="head-follow"> Head follows gaze</label></div>
+        <div class="edit-actions"><button id="blink-preview" class="text-button">Blink now</button><button id="reset-gaze" class="text-button">Center gaze</button></div>
+        <p class="small">Hover over the preview to guide her attention. Automatic motion pauses with reduced motion.</p>
+        <button id="inspect-face" class="text-button">Frame the face</button>
+      </fieldset>
+      <fieldset id="style-editor" role="tabpanel" aria-labelledby="studio-tab-style" hidden disabled>
+        <legend class="sr-only">Skin, eyes and makeup</legend>
+        <div class="section-heading"><h2>The finishing touches</h2><button id="reset-style" class="text-button">Reset finish</button></div>
+        <label class="sr-only" for="style-region">Surface region</label><select id="style-region"><option value="skin">Skin</option><option value="eyes">Iris &amp; lashes</option><option value="makeup">Makeup &amp; lips</option><option value="hair">Hair surface</option></select>
+        <div class="style-section" data-style-group="skin">
+          <label class="color-control" for="skin-color">Skin tone<input id="skin-color" type="color" value="#f4d4bc"></label>
+          <div class="tone-palette" aria-label="Skin tone starts"><button data-skin-color="#f8dfd1" aria-label="Porcelain" style="--tone:#f8dfd1"></button><button data-skin-color="#edc9b2" aria-label="Warm ivory" style="--tone:#edc9b2"></button><button data-skin-color="#cf9e79" aria-label="Golden" style="--tone:#cf9e79"></button><button data-skin-color="#9b6b4b" aria-label="Umber" style="--tone:#9b6b4b"></button><button data-skin-color="#684636" aria-label="Deep brown" style="--tone:#684636"></button></div>
+          <div id="style-skin-controls"></div><p class="small">Choose the Fantasy realism surface to edit pores and gloss. Rotate the key light to inspect the contour.</p>
+        </div>
+        <div class="style-section" data-style-group="eyes" hidden><label class="color-control" for="eye-color">Iris color<input id="eye-color" type="color" value="#79503d"></label><div class="eye-palette" aria-label="Eye color starts"><button data-eye-color="#739ca9">Glacier</button><button data-eye-color="#8876b3">Lilac</button><button data-eye-color="#69906c">Jade</button><button data-eye-color="#ab743b">Amber</button></div><div id="style-eyes-controls"></div><p class="small">Color, pupil and radial iris detail move with her gaze.</p></div>
+        <div class="style-section" data-style-group="makeup" hidden><div class="makeup-colors"><label class="color-control" for="blush-color">Blush color<input id="blush-color" type="color" value="#d87388"></label><label class="color-control" for="lip-color">Lip color<input id="lip-color" type="color" value="#b87379"></label></div><div id="style-makeup-controls"></div></div>
+        <div class="style-section" data-style-group="hair" hidden><div id="style-hair-controls"></div><p class="small">Refine the original hair sculpt's strands and highlights. Choose its color in Hair.</p></div>
+        <button id="inspect-style" class="text-button">Frame the face</button>
+      </fieldset>
+      <fieldset id="hair-editor" role="tabpanel" aria-labelledby="studio-tab-hair" hidden disabled>
+        <legend class="sr-only">Hair controls</legend>
+        <div class="section-heading"><h2>Sculpt her hair</h2><button id="reset-hair" class="text-button">Reset hair</button></div>
+        <label class="select-label" for="hair-style">Hairstyle</label><select id="hair-style"></select>
+        <div class="hair-palette"><label for="hair-color">Color<input id="hair-color" type="color" value="#39303e"></label><button data-hair-color="#d36599">Rose</button><button data-hair-color="#39303e">Ink</button><button data-hair-color="#b4a7be">Lilac</button><button data-hair-color="#b16d42">Copper</button></div>
+        <div id="hair-sliders"></div>
+        <p class="small" id="hair-hint">Layered bangs and tapered locks follow the head. Longer hair clears the torso and sways gently with movement.</p>
+        <button id="inspect-hair" class="text-button">Frame the hair</button>
+      </fieldset>
+      <fieldset id="clothes-editor" role="tabpanel" aria-labelledby="studio-tab-clothes" hidden disabled>
+        <legend class="sr-only">Clothing options</legend>
+        <div class="section-heading"><h2>Put together a look</h2><button id="reset-clothes" class="text-button">Original outfit</button></div>
+        <div id="outfit-presets" class="outfit-choices"></div>
+        <label class="select-label" for="top-style">Top</label><select id="top-style"></select>
+        <div class="tailoring-row"><label for="top-color">Color<input id="top-color" type="color" value="#829da3"></label><label for="top-fit">Fit <output id="top-fit-value" for="top-fit"></output><input id="top-fit" type="range" min="0" max="1" step=".01" value=".15"></label></div>
+        <label class="select-label" for="bottom-style">Bottom</label><select id="bottom-style"></select>
+        <div class="tailoring-row"><label for="bottom-color">Color<input id="bottom-color" type="color" value="#354953"></label><label for="bottom-fit">Fit <output id="bottom-fit-value" for="bottom-fit"></output><input id="bottom-fit" type="range" min="0" max="1" step=".01" value=".15"></label></div>
+        <label class="control" for="leg-length"><span class="control-line">Trouser length<output id="leg-length-value" for="leg-length"></output></span><input id="leg-length" type="range" min="0" max="1" step=".01" value="1"></label>
+        <p class="small">Fitted layers follow your body edits. Tops and bottoms have independent colors and fit.</p>
+      </fieldset>
+      <details open><summary>Light &amp; movement</summary>
+        <label class="select-label" for="surface">Surface</label><select id="surface"><option value="anime3d">Anime 3D</option><option value="anime2d">Anime 2D</option><option value="realistic">Fantasy realism</option><option value="clay">Sculpting clay</option></select>
+        <label class="select-label" for="light-stage">Studio backdrop</label><select id="light-stage"><option value="ivory">Ivory atelier</option><option value="midnight">Midnight studio</option><option value="slate">Neutral slate</option></select>
+        <div class="light-workspace"><button id="lighting-pad" type="button" aria-label="Key light position. Drag to reposition. Arrow keys move the light."><span></span></button><div><p class="small">Place the key light</p><button id="light-soft" class="text-button">Soft portrait</button><button id="light-side" class="text-button">Side sculpt</button><button id="reset-light" class="text-button">Reset light</button></div></div>
+        <div id="light-controls"></div>
+        <div class="checks"><label><input type="checkbox" id="walk"> Walking preview</label><label><input type="checkbox" id="wire"> Wireframe</label><label><input type="checkbox" id="skeleton"> Skeleton</label></div>
+        <p class="small">Walking checks the shape in motion. Body, face and hair edits return to the rest pose; gaze can change during playback.</p>
+      </details>
+      <div class="export-actions"><button id="export-model" class="primary" disabled>Download edited model</button><button id="export-shape" disabled>Save look file</button><label class="import-label" for="import-shape">Load look file<input type="file" id="import-shape" accept=".json,application/json" disabled></label></div>
+      <p id="status" role="status" aria-live="polite">Loading…</p>
+      <details><summary>About this model</summary><p>These are adult anime character studies with editable proportions and face treatments. Game heroine takes inspiration from <a href="https://www.jp.square-enix.com/ffviir_ig/character/tifa.html" target="_blank" rel="noreferrer">Tifa’s Remake appearance</a>; Fantasy realism is an experimental surface and face treatment.</p><p>Hime has a clean anime face, shaped hair and a softer standing pose. The original tank and shorts remain beneath fitted layers; shorter cuts still need an underlying body asset. Detailed anatomy, garment construction and strand grooming remain unfinished.</p><p>Your draft saves separately for each model. Look files retain all settings. Downloads preserve edited geometry, colors, roughness, clothing, hair, skeleton and the source walking clip. Manual gaze and expression export. Automatic motion, studio light and cel shading stay in the preview.</p><a href="./asset-study.html?asset=rigged">Inspect the source assets →</a></details>
+    </aside>
+  </main>
+  <script type="module" src="./model-studio.js"></script>
+</body>
+</html>

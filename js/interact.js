@@ -20,6 +20,7 @@ export function bindDoll({ stage, doll, motion, behavior }) {
   }
 
   stage.addEventListener('pointermove', (e) => {
+    if(doll.editing)return;
     const pt = toView(e);
     if (!press) { if (e.pointerType !== 'touch') motion.setPointer(pt); return; }
     if (e.pointerId !== press.id) return;
@@ -49,10 +50,12 @@ export function bindDoll({ stage, doll, motion, behavior }) {
   stage.addEventListener('pointerleave', () => { if (!press) motion.setPointer(null); });
 
   stage.addEventListener('pointerdown', (e) => {
+    if(doll.editing)return;
     const part = e.target.closest?.('.bj-parts [data-b]');
-    if (!part || e.button > 0) return;
+    if (e.button > 0 || e.target.closest?.('button, a, input')) return;
+    const bone = doll.is3D ? doll.hitTest(e.clientX, e.clientY) : part?.getAttribute('data-b');
+    if (!bone) return;
     e.preventDefault();
-    const bone = part.getAttribute('data-b');
     press = {
       id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: performance.now(), lastX: e.clientX, dir: 0, turns: 0,
       region: isHeadBone(bone) ? 'head' : 'body', pt0: toView(e), mode: null,

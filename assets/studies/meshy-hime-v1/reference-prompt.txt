@@ -1,0 +1,11 @@
+Generated with the built-in image_gen tool on 2026-10-05.
+Original adult character concept for the Meshy evaluation; no user reference
+files were uploaded to generate this image. Not a production model.
+
+Use case: stylized-concept.
+Asset type: a single clean front-view character reference for image-to-3D reconstruction.
+Primary request: create an original adult anime woman, about 25 years old, with elegant believable anatomy and the rounded sculpted finish of a high-quality anime collectible figure.
+Subject: approximately seven heads tall, a mature oval anime face, small relaxed closed-mouth smile, ruby eyes, straight raven-black Hime hair with blunt bangs and cheek-length side sections, long back hair arranged narrowly behind the shoulders so the shoulders, arms and waist silhouette stay visible. Warm peach skin. Naturally rounded chest, ribcage, abdomen, hips, thighs and calves, balanced medium build, realistic shoulder and pelvis structure, gently defined knees and ankles. Symmetric neutral standing A-pose, arms straight about 35 degrees away from sides, fingers relaxed and visibly separated, feet hip width apart and pointing forward, head level.
+Clothing: a simple matte muted teal athletic tank top with wide straps and a modest round neckline, close-fitting and thin with no bulky trim; matching high-waisted fitted athletic shorts ending at mid thigh. Fully opaque clothing, subtle seams. Bare feet. No ribbons, hat, props or jewelry.
+Style/medium: polished 3D anime character sculpt with soft coherent anime shading across face and body, smooth continuous anatomy, low-gloss skin and hair, delicate face detail. Not chibi. No exaggerated muscles or proportions.
+Composition: one character only, full body including all fingers and toes, straight-on nearly orthographic front view centered on a pure white background, generous margin around the entire silhouette. Uniform diffuse studio illumination with minimal cast shadows and no baked dramatic dark shading. No turntable base, no multi-view sheet, no labels, no text, no watermarks.

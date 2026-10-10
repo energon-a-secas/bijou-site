@@ -2,7 +2,7 @@
 // Socks and tights follow the leg's own outline (wear-kit legSegment), shoes
 // follow the foot's. All drawn per side in rest coordinates.
 
-import { legSegment, footPts, smooth, line, shape, fillOnly, stroke, inkOf, darken, lighten, f1, at, scallops } from './wear-kit.js';
+import { legSegment, footPts, smooth, line, shape, fillOnly, stroke, inkOf, darken, lighten, f1, at, scallops, cel } from './wear-kit.js';
 
 const SIDES = [['L', -1], ['R', 1]];
 
@@ -16,7 +16,11 @@ export function legwearPieces(item, M, p) {
     const t0 = { ankle: 0.8, ruffle: 0.78, knee: 0.06, tights: 0, warmers: 0.36, over: -0.04 }[style] ?? 0.06;
     const t1 = style === 'warmers' ? 0.98 : 1.03;
     const seg = legSegment(M, side, 'shin', t0, t1, style === 'warmers' ? 3.2 : 0.9);
-    let svg = shape(smooth(seg.pts), p.fill, p.ink, 1.8);
+    const joined = style === 'tights' || style === 'over';
+    let svg = cel(smooth(seg.pts), p.fill, p.ink, 0, { dx: -4, dy: 0, depth: 0.14 }) +
+      stroke(smooth(seg.pts.slice(0, 4), false) + smooth(seg.pts.slice(4), false), p.ink, 1.25);
+    if (!joined) svg += stroke(line([seg.pts[0], seg.pts[7]]), p.ink, 1.25);
+    svg += stroke(`M${f1(seg.top.x - s * 3)} ${f1(seg.top.y + 20)}Q${f1(seg.top.x - s * 8)} ${f1((seg.top.y + seg.bottom.y) / 2)} ${f1(seg.bottom.x - s * 2)} ${f1(seg.bottom.y - 12)}`, '#e9caca', 2, 'opacity=".13"');
     const band = (y, h, color) => {
       const w = seg.hw(t0) + 1.2;
       return shape(line([[seg.top.x - w, y, 1], [seg.top.x + w, y, 1], [seg.top.x + w * 0.98, y + h, 1], [seg.top.x - w * 0.98, y + h, 1]], true), color, inkOf(color), 1.3);
@@ -35,14 +39,14 @@ export function legwearPieces(item, M, p) {
       const w = th.hw(0.4) + 1;
       out.push({
         bone: `thigh${side}`, z: 110,
-        svg: shape(smooth(th.pts), p.fill, p.ink, 1.8) +
+        svg: cel(smooth(th.pts), p.fill, p.ink, 0, { dx: -4, dy: 0, depth: 0.14 }) + stroke(smooth(th.pts.slice(0, 4), false) + smooth(th.pts.slice(4), false), p.ink, 1.25) +
           shape(line([[th.top.x - w, th.top.y - 1, 1], [th.top.x + w, th.top.y - 1, 1], [th.top.x + w * 0.98, th.top.y + 6, 1], [th.top.x - w * 0.98, th.top.y + 6, 1]], true), p.trim, inkOf(p.trim), 1.2) +
           stroke(line([[th.top.x - s * 4, th.top.y + 14], [th.bottom.x - s * 3, th.bottom.y - 4]]), '#ffffff', 2, 'opacity=".14"'),
       });
     }
     if (style === 'tights') {
       const th = legSegment(M, side, 'thigh', -0.04, 1.03, 0.8);
-      out.push({ bone: `thigh${side}`, z: 110, svg: shape(smooth(th.pts), p.fill, p.ink, 1.8) });
+      out.push({ bone: `thigh${side}`, z: 110, svg: cel(smooth(th.pts), p.fill, p.ink, 0, { dx: -4, dy: 0, depth: 0.14 }) + stroke(smooth(th.pts.slice(0, 4), false) + smooth(th.pts.slice(4), false), p.ink, 1.25) + stroke(`M${f1(th.top.x - s * 8)} ${f1(th.top.y + 30)}Q${f1(th.top.x - s * 11)} ${f1(th.top.y + 100)} ${f1(th.bottom.x - s * 4)} ${f1(th.bottom.y - 12)}`, '#e9caca', 3, 'opacity=".16"') });
     }
   }
   if (style === 'tights') {
@@ -62,7 +66,18 @@ export function shoePieces(item, M, p) {
     const poly = (pts) => smooth(pts.map(P));
     const sole = darken(p.main, 0.45);
     let svg = '';
-    if (style === 'maryjane') {
+    if (style === 'pump' || style === 'captain') {
+      if (style === 'captain') {
+        const seg = legSegment(M, side, 'shin', 0.08, 1.05, 1.5);
+        const pts = seg.pts.map(([x, y, corner], i) => [x, y + (i === 0 || i === 7 ? -8 : 0), corner]);
+        out.push({ bone: `shin${side}`, z: 121, svg: cel(smooth(pts), p.fill, p.ink, 0, { dx: -5, dy: 0, depth: 0.23 }) + stroke(smooth(pts.slice(0, 4), false) + smooth(pts.slice(4), false), p.ink, 1.4) + stroke(`M${f1(pts[0][0])} ${f1(pts[0][1])}Q${f1(seg.top.x)} ${f1(seg.top.y + 9)} ${f1(pts[7][0])} ${f1(pts[7][1])}`, p.ink, 1.5) + stroke(`M${f1(seg.top.x - s * 7)} ${f1(seg.top.y + 18)}Q${f1(seg.top.x - s * 11)} ${f1(seg.top.y + 65)} ${f1(seg.bottom.x - s * 3)} ${f1(seg.bottom.y - 9)}`, '#e9abb1', 2, 'opacity=".35"') });
+      }
+      const top = style === 'captain' ? -7 : 14;
+      const d = poly([[-7.5, top], [0, top + 5], [7.5, top], [10, 23], [9, 34], [4, 40], [-2, 41], [-10, 37], [-12, 29]]);
+      svg = cel(d, p.fill, p.ink, 1.4, { dx: -4, dy: 0, depth: 0.2 }) +
+        shape(poly([[-11, 33], [0, 38], [9, 33], [8, 40], [-3, 43], [-11, 39]]), style === 'pump' ? p.accent : sole, p.ink, 1) +
+        stroke(smooth([[-5, 23], [-6, 29], [-2, 32]].map(P), false), '#f5e9e7', 2.2, 'opacity=".45"');
+    } else if (style === 'maryjane') {
       const body = poly([[-7.4, 11, 1], [-3, 15.5], [3, 15.5], [7.4, 11, 1], [9.8, 22], [10, 30], [7.4, 36.4], [0, 37.8], [-7.4, 36.4], [-10, 30], [-9.8, 22]]);
       svg = shape(body, p.fill, p.ink, 1.8) +
         shape(poly([[-9.4, 32], [0, 35.4], [9.4, 32], [8.2, 38.8, 1], [-8.2, 38.8, 1]]), sole, inkOf(sole), 1.3) +

@@ -68,7 +68,7 @@ export function setCompanionView(on) {
  * rules they need inlined (closed-eye and talking frames stay hidden), drawn
  * onto a canvas, and handed over as a download.
  */
-export async function snapshot({ backdrop, doll, name }) {
+export async function snapshot({ backdrop, doll, avatar, name }) {
   const W = 900, H = 1200;
   const ser = (svg, extra = '') => {
     const clone = svg.cloneNode(true);
@@ -92,9 +92,10 @@ export async function snapshot({ backdrop, doll, name }) {
   // The backdrop is 1000 x 820: cover the portrait canvas, anchored at the floor.
   const k = Math.max(W / 1000, H / 820);
   ctx.drawImage(bg, (W - 1000 * k) / 2, H - 820 * k, 1000 * k, 820 * k);
-  const fig = await load(ser(doll));
+  const fig = await load(avatar?.capture() || ser(doll));
   const dk = (H * 0.94) / 820;
-  ctx.drawImage(fig, (W - 400 * dk) / 2, H - 820 * dk - H * 0.02, 400 * dk, 820 * dk);
+  const figureWidth=820*dk*fig.naturalWidth/fig.naturalHeight;
+  ctx.drawImage(fig, (W - figureWidth) / 2, H - 820 * dk - H * 0.02, figureWidth, 820 * dk);
   const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
   if (blob) downloadBlob(blob, `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'bijou'}-${new Date().toISOString().slice(0, 10)}.png`);
   return !!blob;
