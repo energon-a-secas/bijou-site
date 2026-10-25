@@ -121,7 +121,7 @@ bounded in metres and recalculated from immutable rest vertices. Eye/lash anchor
 follow the same face and height fields. Region selection can move the camera
 close to eyes, nose, mouth or ears; orbit and zoom remain available.
 
-Six portrait starts—Nightbloom, Snowdrop, Amber, Jade, Lilac and Ember—combine
+Six portrait starts (Nightbloom, Snowdrop, Amber, Jade, Lilac and Ember) combine
 adult face details, skin/iris palettes and recolored source hair. Variations keep
 the selected adult age, body and clothes. One undo restores the whole prior look.
 The realistic starter uses each candidate's authored source hair. On corrected

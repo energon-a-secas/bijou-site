@@ -106,7 +106,7 @@ adding more outfits. All character baselines use adult anime proportions.
 
 ## Prioritized work queue
 
-0. **P0 — Portrait realism and source quality:** R-37, R-38, the latest request.
+0. **P0: Portrait realism and source quality:** R-37, R-38, the latest request.
    Review the face with textures off as well as in the intended finish, then
    inspect eyes, lips, chin and fringe at portrait distance in front/profile/¾.
    Keep improvements reversible and exportable. Production adoption requires
@@ -118,7 +118,7 @@ adding more outfits. All character baselines use adult anime proportions.
    earlier Game heroine option. Judge its hair roots/tips, neck length, face/body
    proportions and collar fit in front/profile/¾; technical passes alone do not
    accept the art. Continuous anatomical data remains an internal study.
-1. **P0 — Clothing fit and baseline asset decision:** R-27, R-28, R-30, R-31.
+1. **P0: Clothing fit and baseline asset decision:** R-27, R-28, R-30, R-31.
    Address thin fabric and independent upper/lower construction, especially
    underwear. Evaluate a Meshy candidate against silhouette, articulation and
    customization criteria before adopting a new base mesh. The first Meshy trial
@@ -129,18 +129,18 @@ adding more outfits. All character baselines use adult anime proportions.
    and a wider body range (R-32–R-34), with no further API spend. Next: production
    body topology under the source outfit, constructed garment patterns, clean
    padded texture atlases and face/finger/hair rigging.
-2. **P0 — Body and natural posture:** R-05, R-06, R-09, R-11, R-12, R-20.
+2. **P0: Body and natural posture:** R-05, R-06, R-09, R-11, R-12, R-20.
    Inspect the existing mesh at joints and region boundaries. Refine the bounded
    procedural corrections with authored pose sculpts before widening morph ranges
    or promising production-level anatomy. Review underarms and extreme garment fit.
    Follow the archetype study's A-01, A-02, A-03 and A-07 acceptance criteria.
-3. **P1 — Companion movement and detail:** R-10, R-15, R-16, R-18.
+3. **P1: Companion movement and detail:** R-10, R-15, R-16, R-18.
    Review all hairstyles in motion, refine nail fit and silhouettes, and develop
    small authored gestures. Measure desktop performance before adding complexity.
-4. **P2 — Articulated pose authoring:** R-25, explicitly requested as backlog.
+4. **P2: Articulated pose authoring:** R-25, explicitly requested as backlog.
    Build a saved-pose schema and joint manipulators on the current constrained
    arms, planted legs and support contacts. Add finger editing and undo/redo.
-5. **P2 — Loose clothing:** R-19, R-27, R-28. The pattern editor and independent
+5. **P2: Loose clothing:** R-19, R-27, R-28. The pattern editor and independent
    fit allowance are implemented. Investigate simulation cages, garment layering,
    seams and self-contact; current stretch marks are procedural visual cues.
 

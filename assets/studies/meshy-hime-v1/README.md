@@ -1,4 +1,4 @@
-# Hime / oval — first Meshy trial
+# Hime / oval: first Meshy trial
 
 Created 2026-10-05. This is an isolated asset study, not the companion's active
 body. Open [the interactive viewer](../../../dev/asset-study.html?asset=rigged)
