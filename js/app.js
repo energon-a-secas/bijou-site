@@ -12,11 +12,15 @@ import { setCompanionView } from './companion.js';
 import { bindEvents, makeHooks, renderAll } from './events.js';
 import { $ } from './utils.js';
 
-function init() {
+const params = new URLSearchParams(location.search);
+// ?renderer=vrm drives her from the VRM runtime (avatar-vrm.js); local hosts only while the model is a stand-in.
+const vrm = params.get('renderer') === 'vrm' && /^(localhost|127\.0\.0\.1|\[::1\])$|\.localhost$/.test(location.hostname);
+
+function init(makeDoll) {
   loadSaved(state);
   const info = visit(state);
   const stage = $('stage');
-  const doll = createAvatar($('doll'));
+  const doll = makeDoll($('doll'));
   const fx = createFx({ stage, layer: $('fx'), bubble: $('bubble'), live: $('speech'), doll });
   let behavior = null;
   const motion = createMotion(doll, {
@@ -33,11 +37,12 @@ function init() {
   behavior = createBehavior({ state, doll, motion, fx, hooks: makeHooks() });
   bindDoll({ stage, doll, motion, behavior });
   bindEvents({ doll, motion, behavior, fx });
-  if (new URLSearchParams(location.search).get('view') === 'companion') setCompanionView(true);
+  if (params.get('view') === 'companion') setCompanionView(true);
   renderAll();
   motion.start();
   behavior.start(info);
   save(state, true);
 }
 
-init();
+if (vrm) import('./avatar-vrm.js').then((m) => m.createVrmAvatar, (e) => (console.warn('Bijou: the VRM renderer could not load.', e), createAvatar)).then(init);
+else init(createAvatar);
