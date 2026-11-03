@@ -9,9 +9,11 @@
 // rotations sampled from the posed source, as
 //   normalized = inverse(D(parent)) x D(bone), D = world x inverse(restWorld)
 // which is the same for a direct parent and folds any bone in between
-// (unmapped, or missing on this VRM) into its child. Before sampling, the
-// source rest is posed into the VRM's own T-pose (so an A-pose rig comes out
-// right) and its axes are snapped onto the VRM 1.0 frame (+Y up, facing +Z).
+// (unmapped, or missing on this VRM) into its child. World rotations are
+// composed from local quaternions, so a scaled bone shears none of them.
+// Before sampling, the source rest is posed into the VRM's own T-pose (so an
+// A-pose rig comes out right) and its axes are snapped onto the VRM 1.0 frame
+// (+Y up, facing +Z).
 // Only the hips translate, scaled by the ratio of rest hips heights. VRM 0.x
 // targets get quaternion x and z and hips x and z negated, as
 // createVRMAnimationClip does for VRMA files.
@@ -97,6 +99,16 @@ export function sourceFrame(src) {
   return q.setFromRotationMatrix(m).invert();
 }
 
+/**
+ * World rotation from local quaternions alone. matrixWorld.decompose is no
+ * rotation at all under a parent with non-uniform scale.
+ */
+function worldRotation(o, out) {
+  out.copy(o.quaternion);
+  for (let p = o.parent; p; p = p.parent) out.premultiply(p.quaternion);
+  return out;
+}
+
 /** Pose the mapped source bones so each points where the VRM's T-pose does. */
 function poseToVRM(src, bones, rest, toSource) {
   const a = new T.Vector3(), b = new T.Vector3(), want = new T.Vector3();
@@ -108,26 +120,36 @@ function poseToVRM(src, bones, rest, toSource) {
     want.subVectors(rest[next], rest[name]).applyQuaternion(toSource);
     if (b.lengthSq() < 1e-12 || want.lengthSq() < 1e-12) continue;
     turn.setFromUnitVectors(b.normalize(), want.normalize());
-    node.getWorldQuaternion(wq).premultiply(turn);
-    if (node.parent) wq.premultiply(node.parent.getWorldQuaternion(pq).invert());
+    worldRotation(node, wq).premultiply(turn);
+    if (node.parent) wq.premultiply(worldRotation(node.parent, pq).invert());
     node.quaternion.copy(wq);
     node.updateMatrixWorld(true);
   }
 }
 
-/** Sample times: every key of the given tracks, or a fixed rate when fps is set. */
+// A stepped (discrete) source track jumps at its keys; a key this long
+// before each jump keeps the jump in the linear clip that comes out.
+const STEP = 1e-3;
+
+/** Sample times: every key of the given tracks, or a fixed rate when fps is set, and a key just before each step. */
 function sampleTimes(tracks, duration, fps) {
+  const keys = [];
   if (fps > 0) {
     const n = Math.max(2, Math.round(duration * fps) + 1);
-    return Float32Array.from({ length: n }, (_, i) => (duration * i) / (n - 1));
-  }
-  const keys = [];
-  for (const t of tracks) for (const x of t.times) if (x > 1e-4 && x < duration - 1e-4) keys.push(x);
+    for (let i = 1; i < n - 1; i++) keys.push((duration * i) / (n - 1));
+  } else for (const t of tracks) for (const x of t.times) keys.push(x);
+  for (const t of tracks) if (t.getInterpolation() === T.InterpolateDiscrete) for (const x of t.times) keys.push(x - STEP, x);
   keys.sort((a, b) => a - b);
   const out = [0];
-  for (const x of keys) if (x - out[out.length - 1] > 1e-4) out.push(x);
+  for (const x of keys) if (x - out[out.length - 1] > 1e-4 && x < duration - 1e-4) out.push(x);
   out.push(duration);
   return Float32Array.from(out);
+}
+
+/** Throw on a NaN or infinite sample (a bad source key): written out, it would make the model vanish in any player. */
+function checkFinite(what, values, size, times) {
+  const i = values.findIndex((v) => !Number.isFinite(v));
+  if (i >= 0) throw new Error(`The clip gives ${what} an invalid value (NaN or infinite) at ${times[Math.floor(i / size)].toFixed(3)} s: check the source's keys.`);
 }
 
 /** The clip's position, rotation and scale tracks, bound to nodes of `source`. */
@@ -144,10 +166,12 @@ function bindTracks(clip, source) {
 }
 
 /**
- * Retarget `clip`, which animates `source` (standing in its rest pose, as
- * loaded), onto `vrm`. Returns a THREE.AnimationClip whose tracks drive the
- * VRM's normalized bone nodes, with a report in clip.userData.retarget.
- * The source is left as it was found.
+ * Retarget `clip`, which animates `source`, onto `vrm`. The source must stand
+ * in its rest pose, as loaded: one a mixer has posed shifts every key and the
+ * hips scale. Returns a THREE.AnimationClip whose tracks drive the VRM's
+ * normalized bone nodes, with a report in clip.userData.retarget. Stepped
+ * source tracks stay stepped. Throws on a NaN or infinite key. The source is
+ * left as it was found.
  * opts: {
  *   map: a BONE_MAPS id or { sourceName: vrmBone } (default: the best match),
  *   tpose: pose the source rest into the VRM's T-pose first (default true),
@@ -194,7 +218,7 @@ export function retargetClip(clip, source, vrm, opts = {}) {
   let restInv;
   try {
     if (opts.tpose !== false) poseToVRM(src, bones, rest, Finv);
-    restInv = Object.fromEntries(bones.map((b) => [b, src[b].getWorldQuaternion(new T.Quaternion()).invert()]));
+    restInv = Object.fromEntries(bones.map((b) => [b, worldRotation(src[b], new T.Quaternion()).invert()]));
   } finally { restore(); }
 
   const bound = bindTracks(clip, source);
@@ -205,7 +229,7 @@ export function retargetClip(clip, source, vrm, opts = {}) {
   const rot = Object.fromEntries(bones.map((b) => [b, new Float32Array(n * 4)]));
   const pos = new Float32Array(n * 3);
   const D = Object.fromEntries(bones.map((b) => [b, new T.Quaternion()]));
-  const q = new T.Quaternion(), pq = new T.Quaternion(), p = new T.Vector3(), s = new T.Vector3();
+  const q = new T.Quaternion(), pq = new T.Quaternion(), p = new T.Vector3();
   try {
     for (let i = 0; i < n; i++) {
       for (const { node, prop, f } of bound) {
@@ -215,13 +239,11 @@ export function retargetClip(clip, source, vrm, opts = {}) {
       }
       source.updateWorldMatrix(true, true);
       // World change since the (T-posed) rest, in the VRM 1.0 frame.
-      for (const b of bones) {
-        src[b].matrixWorld.decompose(p, D[b], s);
-        D[b].multiply(restInv[b]).premultiply(F).multiply(Finv);
-      }
+      for (const b of bones) worldRotation(src[b], D[b]).multiply(restInv[b]).premultiply(F).multiply(Finv);
       for (const b of bones) {
         q.copy(D[b]);
         if (parent[b]) q.premultiply(pq.copy(D[parent[b]]).invert());
+        q.normalize();
         if (v0) { q.x = -q.x; q.z = -q.z; }
         const o = i * 4, out = rot[b];
         // Keep neighbouring keys on the same side, so blends take the short way round.
@@ -235,6 +257,8 @@ export function retargetClip(clip, source, vrm, opts = {}) {
       pos[i * 3] = p.x; pos[i * 3 + 1] = p.y; pos[i * 3 + 2] = p.z;
     }
   } finally { restore(); }
+  for (const b of bones) checkFinite(`${b} (${src[b].name})`, rot[b], 4, times);
+  if (opts.translation !== false) checkFinite('the hips position', pos, 3, times);
 
   const name = (b) => h.getNormalizedBoneNode(b).name;
   const tracks = bones.map((b) => new T.QuaternionKeyframeTrack(`${name(b)}.quaternion`, times.slice(), rot[b]));
@@ -248,6 +272,7 @@ export function retargetClip(clip, source, vrm, opts = {}) {
     missing: BONES.filter((b) => h.getNormalizedBoneNode(b) && !src[b] && !/Eye$|^jaw$/.test(b)),
     folded: Object.keys(src).filter((b) => !h.getNormalizedBoneNode(b)),
     driven: bound.filter((x) => mapped.has(x.node)).length,
+    stepped: bound.filter((x) => x.track.getInterpolation() === T.InterpolateDiscrete).length,
     keys: n, scale, frame: F.toArray(),
     tpose: opts.tpose !== false, inPlace: !!opts.inPlace, translation: opts.translation !== false,
   };

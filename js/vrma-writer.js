@@ -25,7 +25,8 @@ function vrmaBones(vrm, rest) {
 
 /**
  * Encode `clip` (tracks on `vrm`'s normalized bone nodes) as a .vrma file.
- * Returns an ArrayBuffer. opts: { name: the animation's name }
+ * Returns an ArrayBuffer; throws on a NaN or infinite key.
+ * opts: { name: the animation's name }
  */
 export function writeVRMA(clip, vrm, opts = {}) {
   const v0 = isVRM0(vrm);
@@ -75,6 +76,8 @@ export function writeVRMA(clip, vrm, opts = {}) {
     if (!bone || !path) continue;
     const size = path === 'rotation' ? 4 : 3;
     const values = Float32Array.from(track.values);
+    // A NaN key would make the model vanish in any player that loads the file.
+    if (!values.every(Number.isFinite) || !track.times.every(Number.isFinite)) throw new Error(`The clip gives ${bone} a NaN or infinite key, so it cannot be saved.`);
     // Back into the VRM 1.0 frame: negate x and z (and nothing else).
     if (v0) for (let i = 0; i < values.length; i += size) { values[i] = -values[i]; values[i + 2] = -values[i + 2]; }
     const out = accessor(values, size === 4 ? 'VEC4' : 'VEC3', values.length / size);

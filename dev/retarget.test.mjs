@@ -323,6 +323,44 @@ test('Mixamo names as FBXLoader and GLTFLoader leave them map through the ported
   assert.throws(() => retargetClip(new T.AnimationClip('x', 1, []), stranger, makeVRM()), /bone map/);
 });
 
+test('rotations come from local quaternions alone: a non-uniformly scaled bone changes no key', () => {
+  const vrm = makeVRM();
+  const plain = makeSource({ seed: 5 }), stretched = makeSource({ seed: 5 });
+  stretched.node.spine.scale.set(1, 1.6, 1);
+  stretched.root.updateMatrixWorld(true);
+  // Without the T-pose step, which reads joint positions and so sees the stretch.
+  const diff = clipDiff(retargetClip(plain.clip, plain.root, vrm, { tpose: false }), retargetClip(stretched.clip, stretched.root, vrm, { tpose: false }));
+  assert.ok(diff < 1e-6, `stretching the spine changed the keys by ${diff}`);
+});
+
+test('stepped source tracks stay stepped', (t) => {
+  const src = makeSource({ apose: 0.4, seed: 6 });
+  for (const track of src.clip.tracks) track.setInterpolation(T.InterpolateDiscrete);
+  const vrm = makeVRM();
+  const clip = retargetClip(src.clip, src.root, vrm);
+  assert.equal(clip.userData.retarget.stepped, src.clip.tracks.length);
+  // Between two keys the source holds still, right up to the next one; so must she.
+  let max = 0;
+  for (const frame of [4.5, 13.9, 22.1, 29.95]) {
+    sourceAt(src, frame / FPS);
+    vrmAt(vrm, clip, frame / FPS);
+    const err = worst(src, vrm, [...AIMS, ...ROLLS]);
+    assert.ok(err < TOL, `${frame}/${FPS} s: bones differ by ${degrees(err)} degrees`);
+    max = Math.max(max, err);
+  }
+  t.diagnostic(`${clip.userData.retarget.keys} keys for ${FPS + 1} stepped ones: worst ${degrees(max)} degrees between steps`);
+});
+
+test('a NaN key fails loudly, in the retargeter and in the writer', () => {
+  const src = makeSource({ seed: 5 });
+  const vrm = makeVRM();
+  const ok = retargetClip(src.clip, src.root, vrm);
+  src.clip.tracks.find((track) => track.name === 'upperarm_l.quaternion').values[4 * 10 + 1] = NaN;
+  assert.throws(() => retargetClip(src.clip, src.root, vrm), /leftUpperArm \(upperarm_l\) an invalid value .* at 0\.333 s/);
+  ok.tracks.find((track) => track.name.endsWith('.quaternion')).values[2] = NaN;
+  assert.throws(() => writeVRMA(ok, vrm), /NaN or infinite key/);
+});
+
 // ── VRMA ─────────────────────────────────────────────────────
 async function parseVRMA(buffer) {
   const loader = new T.GLTFLoader();
