@@ -1,8 +1,9 @@
 # Bijou companion requests and research
 
-Updated **2026-10-05**. This file is the persistent source of truth for the user's
+Updated **2026-11-03**. This file is the persistent source of truth for the user's
 requests, corrections, implementation progress and research queue. Supporting
-studies: [archetypes and animation](ARCHETYPES.md),
+studies: [complete models, motion and physics](MODELS-AND-MOTION.md),
+[archetypes and animation](ARCHETYPES.md),
 [clothing templates](CLOTHING-TEMPLATES.md),
 [figurine and animation look development](LOOK-DEVELOPMENT.md),
 [Meshy asset evaluation](MESHY-EVALUATION.md),
@@ -22,6 +23,13 @@ adding more outfits. All character baselines use adult anime proportions.
   The source asset's built-in clothes and ribbon have already been removed.
 - Prefer quality and a reusable modeling foundation over more superficial
   controls. Preserve the desktop companion, saving, outfits and pop-out window.
+- **2026-11-02:** retake the 3D model and animation work: develop or source
+  complete, cute models and animation, animate them, allow customization and
+  tools, with lots of physics and jiggle. Direction taken: artist-made complete
+  models with authored springs and real motion data, driven by Bijou's own
+  runtime instead of procedurally rebuilding hair, face and clothes. The model
+  choice waits on licensing and the owner's visual judgment
+  ([study](MODELS-AND-MOTION.md)).
 
 ### Clarifications to preserve
 
@@ -55,6 +63,12 @@ adding more outfits. All character baselines use adult anime proportions.
   alone do not establish the requested quality or perfection; assess the face,
   hair and skin in close-up and from multiple angles against the supplied Aion
   creator and figurine references.
+- 2026-11-02 request, verbatim intent: "retake the 3D model efforts and
+  animation, maybe we can develop frame or find where to get those, and animate
+  that, and allow customization and maybe other tools, so we can build that damn
+  doll and make it quite cute, with tons of physics and jiggle movement."
+  Jiggle is delivered through hair, skirts, ribbons, ears and tails; body
+  springs stay capped and optional (Bounce), as PRODUCT.md requires.
 - Latest review: **“oh god it's awful.”** The neutral anatomy presentation was
   visually rejected despite passing technical checks. It is withdrawn from the
   visible choices; its files/drafts remain. Prioritize a coherent Hime/Oval face,
@@ -102,10 +116,22 @@ adding more outfits. All character baselines use adult anime proportions.
 | R-35 | Closer figurine style, better hair, actual arm-length changes between body types | Implemented in model studio; art acceptance open | Hime now uses a clean CC0 anime head, layered/tapered locks, torso rest fit and lower arms; balanced Figurine body on fresh drafts; arm-length controls retained; source fringe no longer limits Hime replacement hair |
 | R-36 | Movable eyes, blinking, expressions and head tracking | Implemented in model studio; production facial rig open | Horizontal/vertical gaze, pointer following, bounded head turns, automatic/manual blink, neutral/smile/bright/serene/wink; height/face-aware anchors, history, comparison, versioned recipes, reduced motion and GLB manual-pose export |
 | R-37 | Aion 2 quality, realistic creator and finer character generation | Studio refinement implemented; production art and full game parity open | [Research and implementation](CHARACTER-CREATOR.md): 31 geometric face controls, 18 skin/iris/makeup/hair parameters, portrait starts/variations, physical finish, light pad, close-ups, v4 recipes and atlas-baked export; authored facial topology, separate eyes, clean maps and a hair groom remain required |
+| R-39 | A complete, cute model, sourced or created, that Bijou may ship and customize | Researched; candidates await owner judgment | [Study](MODELS-AND-MOTION.md): VRoid Studio Terms Art. 7/13(3) bar VRoid content in a public avatar-customizing app without pixiv's licence; Blender-made CC0 models (Shapell family, Mizunashi Hiyori, Himiko 2022) verified CC0, ages unstated; next: owner previews and judges, drops a candidate on `dev/lab.html`, sends the pixiv inquiry |
+| R-40 | Animation from real motion data | Runtime implemented, checked; content sourcing open | VRMA playback, gestures, gaze with saccades, petting, dozing in `js/vrm-motion.js`; CC0 sources identified (Mesh2Motion, rerofumi, sashii, Quaternius); next: approved downloads, a GLB-to-humanoid retargeter, an idle scheduler |
+| R-41 | Lots of physics and jiggle | Implemented in the Doll Lab, checked | Spring controller on three-vrm's manager: fixed substeps with root interpolation, Carry swing, touch ruffling, ribbons with colliders, body cap with Bounce, NaN recovery; `node dev/lab-check.cjs` measures each; next: radial skirt chains and cone limits on a complete model |
+| R-42 | Customization and tools on complete models | Architecture chosen; implementation waits on R-39 | One skeleton, items as small Blender-made VRMs attached by bone name, springs merged, skin hidden per item, MToon tinting; Lab tools: physics sliders, spring/collider overlay, accessory toggle |
 | R-38 | Iterate until realism and perfection are the baseline | Latest anatomy presentation rejected; corrective art pass in progress | Anatomy study withdrawn, assets/drafts preserved; Hime head replaced with clean anime surfaces and authored lids, hair/neck/shoulder/garment corrections; earlier Game heroine head retained; body sculpt, real garment construction, groom, coordinated maps and visual reference acceptance remain open |
 
 ## Prioritized work queue
 
+Since 2026-11-03 the asset decision (R-39) gates the 3D work: items 0 to 2
+below continue to apply to the current renderer until a complete model is
+chosen, after which they are judged on that model.
+
+- **P0, gate: complete model and motion (R-39..R-42).** Owner judges the CC0
+  candidates and sends the pixiv inquiry; then connect the runtime to the
+  companion through an adapter behind the `doll` interface, add approved CC0
+  clips with a retargeter and idle scheduler, then dress-up by bone name.
 0. **P0: Portrait realism and source quality:** R-37, R-38, the latest request.
    Review the face with textures off as well as in the intended finish, then
    inspect eyes, lips, chin and fringe at portrait distance in front/profile/¾.

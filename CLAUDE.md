@@ -14,6 +14,14 @@ Then open http://localhost:8897. It must be served over HTTP: the app is ES modu
 
 ## Architecture
 
+**Complete-model runtime (not yet in the companion).** `vrm-runtime.js` loads
+any VRM 0.x/1.0 and reads its licence metadata; `vrm-motion.js` layers clips,
+idle, gestures, gaze with saccades, petting and dozing; `vrm-physics.js` drives
+the model's own springs (fixed substeps, Carry swing proxy center, body cap and
+Bounce, touch) plus the carry/toss/twirl rig; `vrm-accessory.js` adds physics
+ribbons. `dev/lab.html` (the Doll Lab) loads any dropped `.vrm`/`.vrma`. Which
+models and motion Bijou may ship, and why: `docs/MODELS-AND-MOTION.md`.
+
 The live renderer is `avatar.js`. The `avatar-*` modules own model preparation,
 arm IK/collisions, materials, fitted and generated garments, morphs, hair and face.
 `body-shape.js` supplies the shared regional field; `body-editor.js` owns gestures
@@ -126,6 +134,7 @@ One Persist Kit store, `bijou-site:save` (version 1): name, body, head, outfit, 
 ## Conventions
 
 - Visual checks: `dev/sheet.html` renders a grid of static dolls from the real modules. `?m=poses`, `?m=items&slot=dress`, `?m=heads`, `?m=bodies`; `&c=6&h=290` sets columns and cell height; `&zoom=x,y,w,h` crops every doll to a viewBox. Check every new garment and pose there before the live page.
+- Doll Lab checks: `node dev/lab-check.cjs [outDir] [modelUrl]` with `make serve` running. Playwright resolves from the monorepo root `node_modules`; other copies may lack a browser.
 - Live 3D checks: `dev/model.html?look=seaglass&pose=stretch`; `window.study` exposes builds, poses, stepping and diagnostics. `&linear=1` enables source linear skinning for comparison. Run `node --test dev/avatar-math.test.mjs` after collision, morph or spring changes. Run `node dev/avatar-browser.cjs` for browser checks (Playwright and the local server are required).
 - Zero build step. Plain ES modules loaded by `js/app.js`.
 - Run `node --test dev/avatar-foundation.test.mjs` for support IK, corrective bounds, surface probes, chest controls and tailoring validation. `node dev/avatar-customization.cjs` checks the new editor controls, saved looks and floor/seat support in the browser.
@@ -134,11 +143,12 @@ One Persist Kit store, `bijou-site:save` (version 1): name, body, head, outfit, 
 
 ## Gotchas
 
+- **No VRoid Studio content.** VRoid Studio Terms Art. 7/13(3) withhold the right to use VRoid content in a public app that deforms or combines meshes or exports avatars. Never build or re-export models, garments or hair in VRoid Studio, and never bundle VRoidPreset/AvatarSample_A-C or third-party VRoid models. `dev/` and `assets/` are public on Pages, so licence-restricted test files (pixiv's VRMA pack, Mixamo) are tested from local files and never committed.
 - **3D rest space faces -Z.** The VRM scene rotates it to face the camera. Morphs, garment coordinates, IK targets and colliders use raw rest space. Do not mix camera coordinates into these calculations.
 - **Rebind only in rest pose.** `avatar-morph.js` restores the bone hierarchy before calculating bind inverses. Every shape change updates body, garments and collider dimensions together. Keep `bjRest` unchanged for garment masks.
 - **Shape mode owns its gestures.** Play interactions return early while editing. Gesture cancellation restores the preceding body; slider and pointer edits use the same validated values.
 - **Fit after shaping.** Garment allowance is applied to the shaped body, never passed through body-region classification. Keep anatomical and garment ease controls separate. Fitted and generated garments both need a meaningful result for every exposed tailoring control.
-- **Source springs are retired.** Retained bangs follow the head; generated hair guides own motion. Re-enabling the source spring manager causes fringe recoil on outfit rebuilds and breaks reduced-motion behavior.
+- **Source springs are retired in the live renderer** (`avatar*.js`; the `vrm-*` runtime keeps a model's own springs). Retained bangs follow the head; generated hair guides own motion. Re-enabling the source spring manager causes fringe recoil on outfit rebuilds and breaks reduced-motion behavior.
 - The drawing notes below apply to the **SVG fallback**.
 
 - **No gradient fills on limb pieces.** A per-piece `objectBoundingBox` gradient ends dark at one piece's edge and starts light at the next, so every elbow and knee seams. Skin and multi-piece garments use `cel()` with `dy: 0` (a sideways-only shadow crescent); single-piece shapes may shift diagonally.
