@@ -2,11 +2,13 @@
 // Springs are the model's own (VRMC_springBone or VRM 0.x secondary
 // animation), stepped at a fixed rate so a slow frame, a background tab or
 // the pop-out window cannot change how far hair swings or make it explode.
-// Whole-body dynamics move the avatar through world space (carried, tossed,
-// landing, hopping, spinning); the springs react to that motion by
-// themselves, which is where most of the visible life comes from.
+// Whole-body dynamics (js/vrm-body.js) move the avatar through world space
+// (carried, tossed, landing, hopping, spinning); the springs react to that
+// motion by themselves, which is where most of the visible life comes from.
 
 import * as T from './vendor/avatar-engine.js';
+
+export { createBody, BODY_SPRINGS } from './vrm-body.js';
 
 const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
 const STEP = 1 / 60;
@@ -86,9 +88,10 @@ function chainUp(records) {
  * Spring control for one VRM. With opts.root (the body rig's root), every
  * joint simulates in a proxy center space that follows part of the root's
  * travel: `inertia` is the share of carrying and tossing the springs feel
- * (0 none, 1 all of it); spins are always felt in full. The root's motion
- * is also spread across the fixed substeps, so a 30 Hz frame does not kick
- * twice as hard as a 60 Hz one.
+ * (0 none, 1 all of it); spins are always felt in full. The motion of the
+ * root and of the rig groups under it (lean, squash) is also spread across
+ * the fixed substeps, so a 30 Hz frame does not kick twice as hard as a
+ * 60 Hz one.
  *
  * State, through set(): stiffness, gravity, drag, heft (presets); wind;
  * bounce (body springs, 0 still to 1 capped); inertia; vary (each chain's
@@ -99,8 +102,17 @@ export function createSprings(vrm, opts = {}) {
   const mgr = vrm.springBoneManager || null;
   const root = opts.root || null;
   const proxy = root ? new T.Object3D() : null;
-  const prev = { p: new T.Vector3(), q: new T.Quaternion(), has: false };
-  const cur = { p: new T.Vector3(), q: new T.Quaternion(), e: new T.Euler() };
+  // The rig from the root down to the model: root, lean, squash.
+  const rig = [];
+  if (root) {
+    for (let o = vrm.scene.parent; o; o = o === root ? null : o.parent) rig.unshift(o);
+    if (rig[0] !== root) rig.splice(0, rig.length, root);
+  }
+  const frames = rig.map((o) => ({
+    o, p0: new T.Vector3(), q0: new T.Quaternion(), s0: new T.Vector3(),
+    p1: new T.Vector3(), q1: new T.Quaternion(), s1: new T.Vector3(), e1: new T.Euler(),
+  }));
+  let started = false;
   // Authored values are captured once per joint, so joints added later
   // (runtime accessories) join the presets through refresh().
   let joints = [];
@@ -167,7 +179,7 @@ export function createSprings(vrm, opts = {}) {
     root?.updateMatrixWorld(true);
     if (proxy) placeProxy();
     mgr.reset();
-    prev.has = false;
+    started = false;
     st.resets++;
   }
 
@@ -175,20 +187,24 @@ export function createSprings(vrm, opts = {}) {
   function step(dt) {
     if (!mgr || !st.enabled || st.reduced) return;
     if (dt > 0.25) { recover(); st.acc = 0; return; }
-    if (root) {
-      cur.p.copy(root.position); cur.q.copy(root.quaternion); cur.e.copy(root.rotation);
-      if (!prev.has) { prev.p.copy(cur.p); prev.q.copy(cur.q); prev.has = true; }
+    for (const f of frames) {
+      f.p1.copy(f.o.position); f.q1.copy(f.o.quaternion); f.s1.copy(f.o.scale); f.e1.copy(f.o.rotation);
+      if (!started) { f.p0.copy(f.p1); f.q0.copy(f.q1); f.s0.copy(f.s1); }
     }
+    started = true;
     st.acc += dt;
     const n = Math.min(5, Math.floor(st.acc / STEP));
     for (let i = 1; i <= n; i++) {
       st.t += STEP;
       if (st.wind) settle(gust(st.t));
       if (root) {
-        // Place the root part of the way through this frame's motion.
+        // Place the rig part of the way through this frame's motion.
         const a = i / n;
-        root.position.lerpVectors(prev.p, cur.p, a);
-        root.quaternion.slerpQuaternions(prev.q, cur.q, a);
+        for (const f of frames) {
+          f.o.position.lerpVectors(f.p0, f.p1, a);
+          f.o.quaternion.slerpQuaternions(f.q0, f.q1, a);
+          f.o.scale.lerpVectors(f.s0, f.s1, a);
+        }
         root.updateMatrixWorld(true);
         if (proxy) {
           root.getWorldPosition(_p);
@@ -203,12 +219,12 @@ export function createSprings(vrm, opts = {}) {
       mgr.update(STEP);
     }
     st.acc = n === 5 ? 0 : st.acc - n * STEP;
-    if (root) {
-      // Restore the exact Euler: three.js re-derives it from the quaternion,
-      // and past 90 degrees that can read (PI, PI - y, PI), which the body
-      // rig (it writes rotation.y only) would turn into a half-turn flip.
-      root.position.copy(cur.p); root.rotation.copy(cur.e);
-      if (n) { prev.p.copy(cur.p); prev.q.copy(cur.q); }
+    // Restore the exact Euler: three.js re-derives it from the quaternion,
+    // and past 90 degrees that can read (PI, PI - y, PI), which the body
+    // rig (it writes rotation.y only) would turn into a half-turn flip.
+    for (const f of frames) {
+      f.o.position.copy(f.p1); f.o.rotation.copy(f.e1); f.o.scale.copy(f.s1);
+      if (n) { f.p0.copy(f.p1); f.q0.copy(f.q1); f.s0.copy(f.s1); }
     }
     // A tail landing exactly on a collider centre can produce NaN: recover.
     if (n && joints.length && !Number.isFinite(joints[0].j.bone.quaternion.x + joints[joints.length - 1].j.bone.quaternion.x)) recover();
@@ -272,104 +288,4 @@ export function stepVRM(vrm, dt, springs) {
   if (springs) springs.step(dt);
   else vrm.springBoneManager?.update(dt);
   vrm.materials?.forEach((m) => m.update?.(dt));
-}
-
-/**
- * Whole-body dynamics. Build the rig once around vrm.scene:
- *   root (moves, spins) > lean (pivots at the hips) > squash (scales about the feet) > vrm.scene
- * hold/move/release carry and toss her; hop and land bounce her; every one
- * of those motions makes the springs swing.
- */
-export function createBody(vrm, opts = {}) {
-  const hips = vrm.humanoid.getNormalizedBoneNode('hips');
-  const hipsY = hips ? hips.getWorldPosition(new T.Vector3()).y : 0.9;
-  const root = new T.Group();
-  const lean = new T.Group();
-  const squash = new T.Group();
-  lean.position.y = hipsY;
-  squash.position.y = -hipsY;
-  root.add(lean); lean.add(squash); squash.add(vrm.scene);
-
-  const st = {
-    held: false, grip: new T.Vector3(), target: new T.Vector3(), vel: new T.Vector3(), prev: new T.Vector3(),
-    lean: 0, leanV: 0, tilt: 0, tiltV: 0, s: 1, sV: 0, spin: 0, spinV: 0, airborne: false,
-    bounds: opts.bounds || { minX: -1.4, maxX: 1.4, maxY: 1.6 }, onLand: opts.onLand || null, reduced: false,
-  };
-
-  function hold(point) {
-    st.held = true;
-    st.grip.copy(point).sub(root.position);
-    st.target.copy(point);
-    st.airborne = true;
-  }
-  function move(point) { if (st.held) st.target.copy(point); }
-  function release() {
-    if (!st.held) return;
-    st.held = false;
-    st.vel.clampLength(0, 6);
-  }
-  function hop(power = 2.4) {
-    if (st.held || st.airborne) return false;
-    st.vel.y = power * (st.reduced ? 0.5 : 1);
-    st.sV += 2.2;
-    st.airborne = true;
-    return true;
-  }
-  function spin(turns = 1) { st.spinV += turns * Math.PI * 2 * 3.2; }
-  function poke(strength = 1) { st.sV -= 1.6 * strength; st.tiltV += (Math.random() - 0.5) * 3 * strength; }
-
-  function update(dt) {
-    dt = Math.min(dt, 1 / 20);
-    const p = root.position;
-    st.prev.copy(p);
-    if (st.held) {
-      const want = st.target.clone().sub(st.grip);
-      want.x = clamp(want.x, st.bounds.minX, st.bounds.maxX);
-      want.y = clamp(want.y, 0, st.bounds.maxY);
-      p.lerp(want, 1 - Math.exp(-dt * 18));
-      st.vel.copy(p).sub(st.prev).divideScalar(Math.max(dt, 1e-3));
-    } else if (st.airborne) {
-      st.vel.y -= 9.8 * dt;
-      p.addScaledVector(st.vel, dt);
-      if (p.x < st.bounds.minX || p.x > st.bounds.maxX) { p.x = clamp(p.x, st.bounds.minX, st.bounds.maxX); st.vel.x *= -0.4; }
-      if (p.y <= 0) {
-        p.y = 0;
-        const impact = -st.vel.y;
-        st.sV -= clamp(impact * 0.9, 0, 3.2) * (st.reduced ? 0.4 : 1);
-        if (impact > 1.2) st.vel.y = impact * 0.28;
-        else { st.vel.set(0, 0, 0); st.airborne = false; }
-        st.vel.x *= 0.5;
-        if (impact > 0.4) st.onLand?.(impact);
-      }
-    }
-    // Lean like a pendulum under the grip while carried or flying.
-    const leanTarget = st.airborne ? clamp(-st.vel.x * 0.11, -0.55, 0.55) : 0;
-    st.leanV += (70 * (leanTarget - st.lean) - 9 * st.leanV) * dt;
-    st.lean += st.leanV * dt;
-    st.tiltV += (90 * (0 - st.tilt) - 7 * st.tiltV) * dt;
-    st.tilt += st.tiltV * dt;
-    lean.rotation.z = st.lean + st.tilt * 0.12;
-    // Squash and stretch about the feet, volume roughly preserved.
-    st.sV += (160 * (1 - st.s) - 11 * st.sV) * dt;
-    st.s = clamp(st.s + st.sV * dt, 0.92, 1.07);
-    const w = 1 / Math.sqrt(st.s);
-    squash.scale.set(w, st.s, w);
-    // Spin decays smoothly to a whole turn.
-    if (Math.abs(st.spinV) > 0.01) {
-      st.spin += st.spinV * dt;
-      st.spinV *= Math.exp(-dt * 3.2);
-      root.rotation.y = st.spin;
-    } else if (st.spin) {
-      const whole = Math.round(st.spin / (Math.PI * 2)) * Math.PI * 2;
-      st.spin += (whole - st.spin) * (1 - Math.exp(-dt * 8));
-      root.rotation.y = st.spin;
-      if (Math.abs(whole - st.spin) < 1e-3) { st.spin = 0; root.rotation.y = 0; }
-    }
-  }
-
-  return {
-    root, hold, move, release, hop, spin, poke, update,
-    get state() { return st; },
-    get hipsY() { return hipsY; },
-  };
 }

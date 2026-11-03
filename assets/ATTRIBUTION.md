@@ -59,3 +59,7 @@ Bundled with esbuild 0.25.10; no runtime CDN or build step is required.
 `js/vendor/model-exporter.js` bundles the Three.js **0.180.0 GLTFExporter** (MIT,
 same `THREE-LICENSE.txt`), importing the existing renderer rather than another
 Three instance. Rebuild with `sh dev/vendor-model-exporter.sh`.
+
+# Ported code
+
+- `js/spring-damper.js` ports the exact spring-damper from Daniel Holden's [Spring-It-On](https://github.com/orangeduck/Spring-It-On) (`common.h` at commit 4d97b49), MIT, Copyright (c) 2021 Daniel Holden; the notice is in the file header.
