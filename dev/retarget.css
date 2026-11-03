@@ -1,0 +1,9 @@
+/* Retargeter page: the Doll Lab layout (lab.css) plus its form controls. */
+select, input[type="text"] { min-height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: #2e2328; color: var(--text); font: inherit; }
+/* A select is as wide as its longest option; let the row decide instead. */
+.row select, .row input[type="text"] { flex: 1 1 0; width: 0; min-width: 0; }
+select:disabled, button:disabled { opacity: .5; cursor: default; }
+.support p { margin-top: 8px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.support .missing { color: #ffd3a1; }
+.support strong { color: var(--text); }
+@media (max-width: 820px) { .lab { grid-template-columns: minmax(0, 1fr); } }

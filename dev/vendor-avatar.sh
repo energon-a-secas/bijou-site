@@ -9,6 +9,7 @@ export * from 'three';
 export { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 export { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 export * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+export { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 export * from '@pixiv/three-vrm';
 export { VRMAnimationLoaderPlugin, createVRMAnimationClip, VRMLookAtQuaternionProxy } from '@pixiv/three-vrm-animation';
 EOF

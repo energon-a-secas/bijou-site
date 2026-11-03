@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Bijou Retargeter</title>
+  <link rel="stylesheet" href="lab.css">
+  <link rel="stylesheet" href="retarget.css">
+</head>
+<body>
+  <main class="lab">
+    <section class="view" aria-label="3D view">
+      <canvas id="view"></canvas>
+      <p class="status" id="status" role="status" aria-live="polite">Loading the doll…</p>
+      <p class="hint">Open a GLB or FBX animation from your disk: it is read here in the browser, never uploaded, and must never be committed. She plays the retargeted clip; the source skeleton plays the original beside her, scaled to her size. Drag to orbit.</p>
+    </section>
+    <aside class="panel" aria-label="Retargeter controls">
+      <h1>Retargeter</h1>
+
+      <section>
+        <h2>Source</h2>
+        <label class="file">Open a GLB or FBX animation<input type="file" id="file" accept=".glb,.gltf,.fbx"></label>
+        <div class="support" id="support"></div>
+        <label class="row">Clip <select id="clip" disabled><option>No file yet</option></select></label>
+        <label class="row">Bone map <select id="map"></select></label>
+        <dl class="info" id="report"></dl>
+      </section>
+
+      <section>
+        <h2>Retarget</h2>
+        <label class="row"><input type="checkbox" id="tpose" checked> Pose the source rest into her T-pose (fixes A-pose rigs)</label>
+        <label class="row"><input type="checkbox" id="inplace" checked> Keep her in place (hips height only, no drift)</label>
+        <label class="row"><input type="checkbox" id="translation" checked> Move the hips</label>
+        <label class="row">Keys <select id="fps">
+          <option value="0">As in the source</option>
+          <option value="30">30 a second</option>
+          <option value="60">60 a second</option>
+        </select></label>
+      </section>
+
+      <section>
+        <h2>Preview</h2>
+        <div class="chips">
+          <button type="button" data-act="play" aria-pressed="true">Play</button>
+          <button type="button" data-act="pause" aria-pressed="false">Pause</button>
+          <button type="button" data-act="restart">Restart</button>
+        </div>
+        <label class="slider">Speed <output id="o-speed"></output><input type="range" id="speed" min="0.1" max="2" step="0.05" value="1"></label>
+        <label class="row"><input type="checkbox" id="skeleton" checked> Source skeleton beside her</label>
+        <label class="row"><input type="checkbox" id="layers"> Her idle and gaze on top of the clip</label>
+        <div class="chips">
+          <button type="button" data-view="front">Front</button>
+          <button type="button" data-view="side">Side</button>
+        </div>
+        <p class="stats" id="match"></p>
+      </section>
+
+      <section>
+        <h2>Save</h2>
+        <label class="row">Name <input type="text" id="name" spellcheck="false" autocomplete="off"></label>
+        <div class="chips"><button type="button" id="save" disabled>Save .vrma</button></div>
+        <p class="muted" id="saved">A .vrma holds her T-pose and the motion only, and plays on any VRM in the Doll Lab.</p>
+      </section>
+    </aside>
+  </main>
+  <script type="module" src="retarget.js"></script>
+</body>
+</html>
