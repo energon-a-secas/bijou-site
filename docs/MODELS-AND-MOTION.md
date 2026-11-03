@@ -42,7 +42,7 @@ constraint is licensing, not code:
 | Piece | Where | Evidence |
 | --- | --- | --- |
 | Model-agnostic loader (VRM 0.x and 1.0, licence metadata) | `js/vrm-runtime.js` | Lab shows embedded licence fields |
-| Motion layers: clips, idle, gestures, gaze with saccades, petting, dozing, case-insensitive expressions | `js/vrm-motion.js` | `node dev/lab-check.cjs` |
+| Motion layers: clips, idle, gestures, gaze with saccades, petting, dozing, case-insensitive expressions | `js/vrm-motion.js` | `node dev/lab-check.cjs`; `node --test dev/vrm-motion.test.mjs`: held keys, pauses, loop restarts and fades show on every bone, every frame |
 | Clip retargeter (Mesh2Motion/UE4 and Mixamo bone maps, A-pose into T-pose, hips scale, VRM 0.x) and a VRMA writer, with a page for files from disk | `js/vrm-retarget.js`, `js/vrma-writer.js`, `dev/retarget.html` | `node --test dev/retarget.test.mjs`: bones point within 0.0001 degrees of synthetic sources; written VRMA reloads key for key |
 | Spring controller on three-vrm's own manager: presets, wind, fixed 60 Hz substeps with root interpolation, proxy center (Carry swing), body cap and Bounce, touch impulses, NaN recovery | `js/vrm-physics.js` | same hop swings hair 0.093 at 30 fps and 0.090 at 120 fps; body moves 0.2 mm under a touch that moves hair 2 cm |
 | Whole-body rig: carry, toss, landing bounce, squash, lean, twirl | `js/vrm-physics.js` | twirl settles facing front |

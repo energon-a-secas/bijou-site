@@ -152,6 +152,7 @@ One Persist Kit store, `bijou-site:save` (version 1): name, body, head, outfit, 
 - **Rebind only in rest pose.** `avatar-morph.js` restores the bone hierarchy before calculating bind inverses. Every shape change updates body, garments and collider dimensions together. Keep `bjRest` unchanged for garment masks.
 - **Shape mode owns its gestures.** Play interactions return early while editing. Gesture cancellation restores the preceding body; slider and pointer edits use the same validated values.
 - **Fit after shaping.** Garment allowance is applied to the shaped body, never passed through body-region classification. Keep anatomical and garment ease controls separate. Fitted and generated garments both need a meaningful result for every exposed tailoring control.
+- **three's mixer writes a bone only when its value changes.** So `vrm-motion.js` starts each frame from the pose the mixer last left on every bone a running clip drives, and from the base pose elsewhere. Resetting a driven bone to base before `mixer.update()` flashes held keys, pauses and loop restarts to the base pose; `node --test dev/vrm-motion.test.mjs` checks every bone, every frame.
 - **Source springs are retired in the live renderer** (`avatar*.js`; the `vrm-*` runtime keeps a model's own springs). Retained bangs follow the head; generated hair guides own motion. Re-enabling the source spring manager causes fringe recoil on outfit rebuilds and breaks reduced-motion behavior.
 - The drawing notes below apply to the **SVG fallback**.
 

@@ -1,6 +1,7 @@
 // ── VRM motion: clips, idle, gestures, gaze and face ─────────
 // Layers, applied every frame on the normalized humanoid, in order:
-//   1. the relaxed rest pose (every bone reset, so nothing accumulates)
+//   1. the relaxed rest pose (every bone reset, so nothing accumulates;
+//      a bone a clip drives starts from the clip's pose instead)
 //   2. VRMA clips through an AnimationMixer, cross-faded
 //   3. procedural idle: breathing, weight shift, small head drift
 //   4. gestures authored in code (wave, twirl arms, cheer, shy, peace...)
@@ -135,6 +136,50 @@ export function createMotion(vrm, opts = {}) {
   }
 
   // ── Clips ─────────────────────────────────────────────────
+  // three.js writes a bone only when the mixer's value for it changes, so a
+  // held key (a bone the clip keeps still, a pause, a finished clip, a loop
+  // that restarts on repeated keys) is written once and then left alone.
+  // Each frame therefore starts every bone a running clip drives from the
+  // pose the mixer last left on it, and every other bone from the base.
+  const boneOf = new Map(names.map((n) => [node[n].name, n]));
+  const live = new Map(); // action -> what its clip drives: the current clip and any still fading out
+  const driven = new Set();
+  const clipPose = Object.fromEntries(names.map((n) => [n, new T.Quaternion()]));
+  const clipHips = new T.Vector3();
+  let hipsDriven = false;
+
+  /** The bones a clip's rotation tracks drive, and whether it moves the hips. */
+  function drives(clip) {
+    const out = { bones: [], hips: false };
+    for (const track of clip.tracks) {
+      let p;
+      try { p = T.PropertyBinding.parseTrackName(track.name); } catch { continue; }
+      const n = boneOf.get(p.nodeName);
+      if (n && p.propertyName === 'quaternion') out.bones.push(n);
+      if (n === 'hips' && p.propertyName === 'position') out.hips = true;
+    }
+    return out;
+  }
+  /** Every bone where this frame's layers start: the clip's pose where a clip drives it, else the base. */
+  function startPose() {
+    for (const n of names) node[n].quaternion.copy(driven.has(n) ? clipPose[n] : base[n]);
+    node.hips.position.copy(hipsDriven ? clipHips : hipsRest);
+  }
+  /** After the mixer: stop clips that have faded out, and keep its pose on every bone a clip still drives. */
+  function settle() {
+    for (const a of live.keys()) {
+      if (a === action || a.getEffectiveWeight() > 0) continue;
+      a.stop();
+      live.delete(a);
+      if (![...clips.values()].includes(a.getClip())) mixer.uncacheClip(a.getClip());
+    }
+    driven.clear();
+    hipsDriven = false;
+    for (const d of live.values()) { for (const n of d.bones) driven.add(n); hipsDriven ||= d.hips; }
+    for (const n of driven) clipPose[n].copy(node[n].quaternion);
+    if (hipsDriven) clipHips.copy(node.hips.position);
+  }
+
   /** A VRMA animation (built for this model here), or a clip already on its normalized bones (vrm-retarget.js). */
   function addClip(name, vrmAnimation) {
     const clip = vrmAnimation instanceof T.AnimationClip ? vrmAnimation : T.createVRMAnimationClip(vrmAnimation, vrm);
@@ -152,7 +197,14 @@ export function createMotion(vrm, opts = {}) {
     next.timeScale = speed;
     if (action && action !== next) action.crossFadeTo(next, fade, false);
     else next.fadeIn(fade);
+    // The mixer keeps each bone's pose when a clip first binds it, to fade
+    // from and back to: make that the frame's starting pose, not its layers.
+    const shown = names.map((n) => node[n].quaternion.clone()), hips = node.hips.position.clone();
+    startPose();
     next.play();
+    names.forEach((n, i) => node[n].quaternion.copy(shown[i]));
+    node.hips.position.copy(hips);
+    live.set(next, drives(clip));
     action = next;
     return true;
   }
@@ -311,9 +363,9 @@ export function createMotion(vrm, opts = {}) {
 
   function update(dt) {
     st.t += dt;
-    for (const n of names) node[n].quaternion.copy(base[n]);
-    node.hips.position.copy(hipsRest);
+    startPose();
     mixer.update(dt);
+    settle();
     // Doze after being left alone: eased in over seconds, out quickly on waking.
     const dozing = st.sleepAfter > 0 && !st.held && st.t - st.lastSeen > st.sleepAfter ? 1 : 0;
     st.sleep += (dozing - st.sleep) * (1 - Math.exp(-dt * (dozing ? 0.6 : 4)));

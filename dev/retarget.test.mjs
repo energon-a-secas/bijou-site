@@ -415,10 +415,12 @@ async function loadBijou() {
   return vrm;
 }
 
-test('onto bijou.vrm (VRM 0.x): plays through vrm-motion.js bone for bone, and its VRMA round-trips', async (t) => {
+test('onto bijou.vrm (VRM 0.x): a body clip with still fingers plays through vrm-motion.js bone for bone, every frame, and its VRMA round-trips', async (t) => {
   const vrm = await loadBijou();
   assert.equal(vrm.meta.metaVersion, '0');
   const src = makeSource({ apose: 0.7, scale: 1.1, seed: 31 });
+  // Like most body clips, it never keys the fingers: their tracks hold one value.
+  src.clip.tracks = src.clip.tracks.filter((track) => !/^(thumb|index|middle|ring|pinky)_/.test(track.name));
   const clip = retargetClip(src.clip, src.root, vrm, { map: 'mesh2motion', inPlace: true });
   assert.equal(Object.keys(clip.userData.retarget.bones).length, 52);
   // The procedural layers off, so what she shows is the clip alone.
@@ -427,12 +429,13 @@ test('onto bijou.vrm (VRM 0.x): plays through vrm-motion.js bone for bone, and i
   motion.follow = false;
   motion.addClip('swing', clip);
   assert.ok(motion.play('swing', { fade: 0.01 }));
-  let frame = 0, max = 0;
-  for (const i of [2, 11, 26]) {
-    while (frame < i) { motion.update(1 / FPS); frame++; }
+  // 0.07 s frames: the one-second loop wraps between frames, three times.
+  let max = 0;
+  for (let i = 1; i <= 50; i++) {
+    motion.update(0.07);
     vrm.humanoid.update();
     vrm.scene.updateMatrixWorld(true);
-    sourceAt(src, frame / FPS);
+    sourceAt(src, (i * 0.07) % 1);
     const err = worst(src, vrm, AIMS);
     assert.ok(err < TOL, `frame ${i}: bijou differs by ${degrees(err)} degrees`);
     max = Math.max(max, err);
@@ -440,5 +443,5 @@ test('onto bijou.vrm (VRM 0.x): plays through vrm-motion.js bone for bone, and i
   const buffer = writeVRMA(clip, vrm);
   const diff = clipDiff(clip, T.createVRMAnimationClip(await parseVRMA(buffer), vrm));
   assert.ok(diff < 1e-6, `bijou round trip differs by ${diff}`);
-  t.diagnostic(`bijou through vrm-motion.js: worst ${degrees(max)} degrees; VRMA ${buffer.byteLength} bytes, largest key difference ${diff}`);
+  t.diagnostic(`bijou through vrm-motion.js, fingers still: worst ${degrees(max)} degrees over 50 frames; VRMA ${buffer.byteLength} bytes, largest key difference ${diff}`);
 });
