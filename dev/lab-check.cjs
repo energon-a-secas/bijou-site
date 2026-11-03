@@ -170,12 +170,22 @@ fs.mkdirSync(out, { recursive: true });
     const lab = window.lab;
     const hair = [...lab.cur.vrm.springBoneManager.joints].filter((j) => !/bust|breast|skirt|sleeve|ribbon/i.test(j.bone.name)).slice(0, 12);
     const rel = () => hair.map((j) => { const a = j.bone.getWorldPosition(j.bone.position.clone()); return (j.child || j.bone).getWorldPosition(a.clone()).sub(a); });
+    // The Lab's toss lets go after 700 ms on a timer, which cannot fire inside
+    // this synchronous evaluate; release here at the same moment, or her
+    // dangling arms keep shoving the hair through every later measurement.
+    // Each run also settles at its own rate before the baseline is read.
     const run = (kick, dt) => {
       lab.step(2.5);
+      lab.step(0.5, dt);
       const r0 = rel();
       kick();
       let max = 0;
-      for (let t = 0; t < 1.2; t += dt) { lab.step(dt, dt); rel().forEach((v, k) => { max = Math.max(max, v.distanceTo(r0[k])); }); }
+      for (let t = 0; t < 1.2; t += dt) {
+        if (t >= 0.7 && lab.cur.motion.state.held) lab.cur.motion.setHeld(false);
+        lab.step(dt, dt);
+        rel().forEach((v, k) => { max = Math.max(max, v.distanceTo(r0[k])); });
+      }
+      if (lab.cur.motion.state.held) lab.cur.motion.setHeld(false);
       lab.step(2.5);
       return +max.toFixed(4);
     };
