@@ -7,7 +7,9 @@ animate them, allow customization and tools, with lots of physics. Six
 studies (models, creating our own, animation, physics, dress-up, desktop
 companions) and one license verification per candidate. Sources are the
 creators' own pages, terms and repositories, read on those dates. This is
-research, not legal advice.
+research, not legal advice. The full record, with verbatim licence quotes, the
+part-by-part physics table, bone maps and a phased build plan, is
+[research/2026-11-03-complete-model-memo.md](research/2026-11-03-complete-model-memo.md).
 
 ## Summary
 
@@ -59,7 +61,7 @@ the model decision.
 | Shapell VRM 0.0 conversion on VRoid Hub | CC0 source, Hub conditions all allow | 30 MB, rough expressions per uploader | Same as Shapell | Lower fidelity than the two above |
 | Mizunashi Hiyori, HENGE ([BOOTH 6120660](https://booth.pm/ja/items/6120660)) | CC0 for `CC0_FBX` and `CC0_Texture` only | FBX (67 MB zip); PhysBone and expressions are VRChat-only, outside CC0 | Author: a taller setting looks more grown-up | Visual check, then Blender conversion |
 | Himiko 2022, HENGE ([BOOTH 4023978](https://booth.pm/ja/items/4023978)) | CC0 for `FBX` and `Texture` folders | Light mesh (about 8.8k triangles, one material) | Age unstated | Modest for a physics-heavy hero |
-| pixiv CC0 β samples 2 to 4 (Vivi, Vita, Victoria Rubin) | CC0 from pixiv, plus the open VRoid terms question above | VRM 0.0 with authored hair, outfit and springs | No age stated | Usable as now; ask pixiv before building more on them |
+| pixiv CC0 β samples 2 to 4 (Vivi, Vita, Victoria Rubin) | CC0 from pixiv, plus the open VRoid terms question above; no verifier confirmed them for Bijou's use | VRM 0.0 with authored hair, outfit and springs | No age stated | Stand-in for model-agnostic work only; build nothing new on them, including restoring the stripped outfit, until pixiv answers |
 | Owner-made VRoid Studio heroine | Owner sets the meta | VRM 1.0 with hair, skirt, sleeve springs, expressions | Owner controls proportions | Cutest route, but fixed character only until pixiv licenses customization |
 
 Rejected: β AvatarSample_1 and Sendagaya Shino (pixiv's profiles make them
@@ -73,18 +75,24 @@ girl); Sketchfab fan uploads.
 ## Animation
 
 Playback is solved: `createVRMAnimationClip` with an `AnimationMixer`, mixer
-before humanoid and springs (already in `vrm-motion.js`). Content:
+before humanoid and springs (already in `vrm-motion.js`). Every source below
+was checked by a separate verifier on the creator's own page.
 
-- **Bundle (CC0, licence verification pending for each):** Mesh2Motion's human
-  library (222 GLB clips incl. idle variants, sitting, sleeping, greeting,
-  head nod, five dances, victory, walk-happy; UE4-style bones, needs
-  retargeting and the mesh dropped), rerofumi's 8 VRMA gestures
-  ([BOOTH 5527394](https://booth.pm/ja/items/5527394)), sashii's Sachi VRMA 1
-  and run/walk VRMA, Quaternius UAL 1 and 2, KayKit; 100STYLE is CC BY 4.0.
+- **Bundle (verified):**
+  - rerofumi's 8 VRMA gestures, CC0 ([BOOTH 5527394](https://booth.pm/ja/items/5527394), 4.42 MB): a greeting, cheering, a startled jolt.
+  - Sachi VRMA 1 by sashii, CC0 ([BOOTH 6412084](https://booth.pm/ja/items/6412084), 56.1 MB): commit only `.vrma` files with no meshes; treat capture clips of a recognisable dance as unverified.
+  - KayKit Character Animations, CC0 (itch.io copy only, not the Unity Asset Store copy): 161 clips on a chunky rig, expect offsets.
+  - Mesh2Motion's human clips **without** the `quaternius` tag in its `manifest.json`, 135 of 222, CC0 (pin one app commit; never vendor `human/variations/` or `static/test-files/`): idles, greeting, head nod, clapping, victory, dances, walks, freefall and landing. Needs retargeting from UE4-style bones and meshopt decoding.
+  - 100STYLE locomotion, CC BY 4.0: credit the authors and state the changes.
+- **Hold:**
+  - Quaternius UAL 1 and 2, and Mesh2Motion's 87 Quaternius-tagged clips (including the sitting set): the packs still say CC0, but quaternius.com published a proprietary Quaternius Asset License on 2026-08-28 that bars standalone redistribution, and the verifiers split. Bundle only after reading the licence file inside the zips and saving dated captures, or after the creator confirms.
+  - sashii's Josie run/walk VRMA: the upstream CC0 covers the model and textures only and the clips' origin is unknown.
+  - CMU mocap: no resale "even in converted form"; own folder with a notice if ever used.
 - **Visitor-loaded only:** pixiv's official 7-motion VRMA pack (its terms
   forbid extractable redistribution; a static site is extractable), Mixamo
-  (raw files may not be distributed), BOOTH packs that forbid standalone
-  redistribution, Bandai Namco (CC BY-NC).
+  (raw files may not be distributed), ChatVRM's `idle_loop.vrma` (no stated
+  terms), BOOTH packs that forbid standalone redistribution, Bandai Namco
+  (CC BY-NC). Ready Player Me's library is limited to its own avatars.
 - None of the bundleable libraries is cute anime acting as shipped. Expect to
   retime them, layer them under the procedural idle, gaze and springs, and
   record or hand-key a few signature clips (XR Animator records VRMA from a
@@ -151,8 +159,9 @@ companion app.
    export; may an owner-made VRoid model be used in such an app; may Bijou
    bundle the official VRMA 7-pack. A yes on the second makes VRoid Studio the
    whole answer.
-4. Approve downloads for animation (Mesh2Motion clips, rerofumi and sashii
-   VRMA) once their verifications land.
+4. Approve the verified motion downloads: rerofumi's set and Sachi VRMA 1
+   (BOOTH, your login), KayKit (itch.io) and the 135 untagged Mesh2Motion
+   clips (GitHub, pinned commit).
 5. Decide whether `dev/` should stay public on Pages (the model studio there
    exports GLB containing the β sample's face).
 
