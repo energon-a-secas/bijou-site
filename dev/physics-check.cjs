@@ -4,14 +4,19 @@
 //   - A hair chain after a hop at 30, 60 and 120 frames a second: how many
 //     times it swings, how long it takes to settle, how far it moves.
 //   - The squash and lean curves of the same hop and toss at those rates:
-//     peaks, and how far the curves drift between rates.
-//   - Ribbon and hair joints during twirls and a toss: the largest angle
-//     from each joint's rest direction, against its cone limit.
+//     peaks (the squash spring's own value, not the clamped scale), and how
+//     far the curves drift between rates.
+//   - What the cone limits change, each move run with and without them:
+//     how far a hair lock or a ribbon swings from rest as a whole, the
+//     largest single-frame jump of any tail (a pop), and how deep a hair
+//     tail sits inside a body collider (clipping).
 //   - The smallest drag any non-body joint reaches under every preset and
 //     slider extreme (floor 0.12), and the body cap (stiffness 1, drag 0.35).
-//   - Per-chain variation: body springs untouched, chains distinct, root
-//     stiffer than tip, and the same values after refresh(), preset changes
-//     and re-adding the ribbons.
+//   - Per-chain variation: body springs untouched, chains the file authored
+//     alike kept apart, floored chains still varied in drag, root stiffer
+//     than tip, and the same values after refresh(), preset changes and
+//     re-adding the ribbons.
+//   - Bouncy is not jelly: hair, ribbon and skirt settle after a hop.
 // Prints one line per measurement; exits 1 when a bound fails.
 //   LAB_URL=http://localhost:8897 node dev/physics-check.cjs [outDir]
 // NODE_PATH can supply Playwright from the monorepo root node_modules.
@@ -133,9 +138,11 @@ function drift(a, b, key) {
         const rest = tip();
         kick();
         const dt = 1 / fps, out = [];
+        // s is the squash scale the model shows (clamped); sx is the squash spring itself.
+        const sx = () => (body.state.springs ? body.state.springs.squash.x : body.state.s);
         for (let i = 1; i <= Math.round(seconds * fps); i++) {
           lab.frame(dt);
-          out.push({ t: i / fps, d: tip().sub(rest).toArray(), s: body.state.s, lean: body.state.lean, air: body.state.airborne });
+          out.push({ t: i / fps, d: tip().sub(rest).toArray(), s: body.state.s, sx: sx(), lean: body.state.lean, air: body.state.airborne });
         }
         return out;
       };
@@ -149,7 +156,7 @@ function drift(a, b, key) {
     const { hop, toss } = runs[fps];
     const land = hop.findLastIndex((r, i) => i > 0 && hop[i - 1].air && !r.air);
     const whole = swingsOf(hop), after = swingsOf(hop, Math.max(0, land));
-    const s = hop.map((r) => r.s), ts = toss.map((r) => r.s);
+    const s = hop.map((r) => r.sx), ts = toss.map((r) => r.sx);
     hairRows[fps] = {
       hairPeak: whole.peak, swings: whole.swings, settle: whole.settle,
       swingsAfterLanding: after.swings, settleAfterLanding: after.settle, landedAt: r4(hop[land]?.t ?? NaN),
@@ -159,14 +166,14 @@ function drift(a, b, key) {
     console.log(`hop and toss at ${fps} fps:`, JSON.stringify(hairRows[fps]));
   }
   const drifts = {
-    squash30v120: r4(drift(runs[30].hop, runs[120].hop, 's')), squash60v120: r4(drift(runs[60].hop, runs[120].hop, 's')),
-    tossSquash30v120: r4(drift(runs[30].toss, runs[120].toss, 's')),
+    squash30v120: r4(drift(runs[30].hop, runs[120].hop, 'sx')), squash60v120: r4(drift(runs[60].hop, runs[120].hop, 'sx')),
+    tossSquash30v120: r4(drift(runs[30].toss, runs[120].toss, 'sx')),
     lean30v120: r4(drift(runs[30].toss, runs[120].toss, 'lean')), lean60v120: r4(drift(runs[60].toss, runs[120].toss, 'lean')),
   };
   console.log('rig curve drift between rates:', JSON.stringify(drifts));
   fs.writeFileSync(path.join(out, 'physics-curves.json'), JSON.stringify(Object.fromEntries(RATES.map((f) => [f, {
-    hop: runs[f].hop.map((r) => [r4(r.t), r4(r.s), r4(r.lean), r4(Math.hypot(...r.d))]),
-    toss: runs[f].toss.map((r) => [r4(r.t), r4(r.s), r4(r.lean), r4(Math.hypot(...r.d))]),
+    hop: runs[f].hop.map((r) => [r4(r.t), r4(r.sx), r4(r.lean), r4(Math.hypot(...r.d))]),
+    toss: runs[f].toss.map((r) => [r4(r.t), r4(r.sx), r4(r.lean), r4(Math.hypot(...r.d))]),
   }]))));
   for (const fps of RATES) {
     const h = hairRows[fps];
@@ -179,35 +186,90 @@ function drift(a, b, key) {
   expect(Math.max(drifts.squash30v120, drifts.squash60v120, drifts.tossSquash30v120) < 1e-3, 'squash curve drifts with frame rate');
   expect(Math.max(drifts.lean30v120, drifts.lean60v120) < 1e-3, 'lean curve drifts with frame rate');
 
-  // ── Cone limits through twirls and a toss (60 fps) ─────────
-  const cones = await page.evaluate(() => {
+  // ── Cones on versus off (60 fps) ───────────────────────────
+  // Each move runs from rest twice, with the cones (hair and ribbons) and
+  // without, for 3 s. lock: the largest angle between a lock's or a strip's
+  // root-to-tip direction and its rest direction, in head space (a cone
+  // holds each link to the one above it, so this is what it does to the
+  // whole). jump: the largest move of any hair or ribbon tail in one frame,
+  // in head space (a pop). clip: the deepest a hair tail sits inside a body
+  // collider. pastRim: how far colliders, which win over cones, hold a
+  // limited joint past its rim.
+  const coneRuns = await page.evaluate(async () => {
     const { lab, pc } = { lab: window.lab, pc: window.pc };
-    const { body } = lab.cur;
-    pc.quiet(); pc.rest();
-    const groups = { ribbon: pc.joints().filter((j) => /^ribbon/i.test(j.bone.name)), hair: pc.joints().filter((j) => /hair/i.test(j.bone.name)) };
-    const max = { ribbon: 0, hair: 0 }, rest = { ribbon: 0, hair: 0 };
-    for (const k of Object.keys(groups)) for (const j of groups[k]) rest[k] = Math.max(rest[k], pc.coneAngle(j));
-    const run = (frames) => {
-      for (let i = 0; i < frames; i++) {
-        lab.frame(1 / 60);
-        for (const k of Object.keys(groups)) for (const j of groups[k]) max[k] = Math.max(max[k], pc.coneAngle(j));
+    const { setCone } = await import('/js/vrm-limits.js');
+    const T = pc.T, head = lab.cur.vrm.humanoid.getRawBoneNode('head');
+    pc.quiet();
+    const chains = pc.chains();
+    const hairC = chains.filter((c) => /hair/i.test(c[0].bone.name) && c.length >= 3), ribC = chains.filter((c) => /^ribbon/i.test(c[0].bone.name));
+    const hairJ = pc.joints().filter((j) => /hair/i.test(j.bone.name)), ribJ = pc.joints().filter((j) => /^ribbon/i.test(j.bone.name));
+    const hairCone = lab.cur.springs.state.hairCone ?? 50, ribCone = ribJ[0]?.limit ? ribJ[0].limit.angle * 180 / Math.PI : 60;
+    const cones = (on) => { lab.cur.springs.set({ hairCone: on ? hairCone : 180 }); for (const j of ribJ) setCone(j, on ? ribCone : null); };
+    const local = (v) => head.worldToLocal(v);
+    const lockDir = (c) => local(pc.tail(c[c.length - 1])).sub(local(c[0].bone.getWorldPosition(new T.Vector3()))).normalize();
+    const deg = (a, b) => Math.acos(Math.max(-1, Math.min(1, a.dot(b)))) * 180 / Math.PI;
+    const n = new T.Vector3();
+    const clip = () => {
+      let worst = 0;
+      for (const j of hairJ) {
+        const t = pc.tail(j);
+        for (const g of j.colliderGroups) for (const c of g.colliders) worst = Math.max(worst, -c.shape.calculateCollision(c.colliderMatrix, t, j.settings.hitRadius, n));
       }
+      return worst;
     };
-    body.spin(1); run(120);
-    body.spin(2); run(150);
-    body.state.airborne = true; body.state.vel.set(1.2, 3.6, 0); run(150);
-    body.spin(-1); run(120);
-    const limit = (js) => { const l = js.map((j) => j.limit?.angle).filter((x) => x != null); return l.length ? +(Math.max(...l) * 180 / Math.PI).toFixed(2) : null; };
-    const fin = pc.joints().every((j) => Number.isFinite(j.bone.quaternion.x));
-    return {
-      ribbonMax: +max.ribbon.toFixed(2), ribbonLimit: limit(groups.ribbon), hairMax: +max.hair.toFixed(2), hairLimit: limit(groups.hair),
-      ribbonAtRest: +rest.ribbon.toFixed(2), hairAtRest: +rest.hair.toFixed(2), limited: pc.joints().filter((j) => j.limit).length, finite: fin,
+    const moves = {
+      'Lab Toss': (b) => { b.state.airborne = true; b.state.vel.set(1.6, 3.2, 0); },
+      'Lab Twirl': (b) => b.spin(1),
+      'Lab Hop': (b) => b.hop(),
+      'toss at 6 m/s': (b) => { b.state.airborne = true; b.state.vel.set(1.2, 6, 0); },
+      'thrown up at 4 m/s': (b) => { b.state.airborne = true; b.state.vel.set(0, 4, 0); },
+      'three twirls': (b) => b.spin(3),
+      'dropped from 0.8 m': (b) => { b.root.position.y = 0.8; b.state.airborne = true; },
+      'dropped from 1.2 m': (b) => { b.root.position.y = 1.2; b.state.airborne = true; },
     };
+    const out = {};
+    for (const [name, move] of Object.entries(moves)) {
+      out[name] = {};
+      for (const on of [false, true]) {
+        cones(on);
+        pc.rest();
+        head.updateWorldMatrix(true, false);
+        const rest = { hair: hairC.map(lockDir), ribbon: ribC.map(lockDir) };
+        const tails = () => { head.updateWorldMatrix(true, false); return [...hairJ, ...ribJ].map((j) => local(pc.tail(j))); };
+        let prev = tails();
+        move(lab.cur.body);
+        const r = { hairLock: 0, ribbonLock: 0, hairJump: 0, ribbonJump: 0, clip: 0, pastRim: 0 };
+        for (let i = 0; i < 180; i++) {
+          lab.frame(1 / 60);
+          head.updateWorldMatrix(true, false);
+          hairC.forEach((c, k) => { r.hairLock = Math.max(r.hairLock, deg(lockDir(c), rest.hair[k])); });
+          ribC.forEach((c, k) => { r.ribbonLock = Math.max(r.ribbonLock, deg(lockDir(c), rest.ribbon[k])); });
+          const now = tails();
+          now.forEach((v, k) => { const d = v.distanceTo(prev[k]); if (k < hairJ.length) r.hairJump = Math.max(r.hairJump, d); else r.ribbonJump = Math.max(r.ribbonJump, d); });
+          prev = now;
+          r.clip = Math.max(r.clip, clip());
+          if (on) for (const j of [...hairJ, ...ribJ]) if (j.limit) r.pastRim = Math.max(r.pastRim, pc.coneAngle(j) - j.limit.angle * 180 / Math.PI);
+        }
+        out[name][on ? 'on' : 'off'] = r;
+      }
+    }
+    cones(true);
+    const finite = pc.joints().every((j) => Number.isFinite(j.bone.quaternion.x));
+    pc.quiet(); pc.rest();
+    return { out, hairCone, ribCone, finite, limited: pc.joints().filter((j) => j.limit).length, hairAtRest: Math.max(...hairJ.map(pc.coneAngle)) };
   });
-  console.log('cone limits (degrees from rest):', JSON.stringify(cones));
-  expect(cones.finite, 'spring bones went non-finite during the cone run');
-  expect(cones.ribbonLimit != null && cones.ribbonMax <= cones.ribbonLimit + 0.5, `ribbon tails reached ${cones.ribbonMax} degrees against a ${cones.ribbonLimit} degree cone`);
-  expect(cones.hairLimit != null && cones.hairMax <= cones.hairLimit + 0.5, `hair joints reached ${cones.hairMax} degrees against a ${cones.hairLimit} degree cone`);
+  const r1 = (n) => +n.toFixed(1), cm = (m) => r1(m * 100), mm = (m) => r1(m * 1000);
+  console.log(`cones: hair ${coneRuns.hairCone}, ribbons ${r1(coneRuns.ribCone)} degrees per link; ${coneRuns.limited} joints limited; hair sits up to ${r1(coneRuns.hairAtRest)} degrees off rest at rest`);
+  for (const [name, { on, off }] of Object.entries(coneRuns.out)) {
+    const pair = (k, f) => `${f(on[k])}/${f(off[k])}`;
+    console.log(`  ${name}, cones on/off: lock hair ${pair('hairLock', r1)}, ribbon ${pair('ribbonLock', r1)} deg; jump hair ${pair('hairJump', cm)}, ribbon ${pair('ribbonJump', cm)} cm; clip ${pair('clip', mm)} mm; past rim ${r1(on.pastRim)} deg`);
+    expect(on.clip <= off.clip + 0.005, `${name}: with cones hair clips ${mm(on.clip)} mm into the body, against ${mm(off.clip)} mm without`);
+    expect(on.hairJump <= 1.5 * off.hairJump + 0.01 && on.ribbonJump <= 1.5 * off.ribbonJump + 0.01, `${name}: cones make a tail pop (hair ${cm(on.hairJump)} cm in a frame, ${cm(off.hairJump)} without; ribbon ${cm(on.ribbonJump)}, ${cm(off.ribbonJump)})`);
+    expect(on.hairLock <= off.hairLock + 5 && on.ribbonLock <= off.ribbonLock + 5, `${name}: cones let a lock or strip swing further (hair ${r1(on.hairLock)} against ${r1(off.hairLock)}, ribbon ${r1(on.ribbonLock)} against ${r1(off.ribbonLock)})`);
+  }
+  const worstLock = (side) => Math.max(...Object.values(coneRuns.out).map((r) => r[side].hairLock));
+  expect(worstLock('on') <= worstLock('off') - 15, `the hair cone keeps the worst lock to ${r1(worstLock('on'))} degrees from rest, against ${r1(worstLock('off'))} without (want 15 less)`);
+  expect(coneRuns.finite, 'spring bones went non-finite during the cone runs');
 
   // ── Drag floor and body cap under every preset and slider extreme ──
   const drag = await page.evaluate(() => {
@@ -250,8 +312,19 @@ function drift(a, b, key) {
     const chains = pc.chains().filter((c) => !isBody(c[0]));
     const k = (j) => j.settings.stiffness / tapered[j.bone.name][0];
     const d = (j) => j.settings.dragForce / Math.max(1e-9, tapered[j.bone.name][1]);
-    const factors = chains.map((c) => +k(c[0]).toFixed(4));
     const spread = chains.map((c) => Math.abs(k(c[0]) - 1));
+    // Chains the file authored alike (the same length, plain stiffness, drag
+    // and gravity) swing in lockstep unless variation keeps them apart.
+    let alikePairs = 0, closest = { gap: Infinity, a: '', b: '' };
+    for (let a = 0; a < chains.length; a++) for (let b = a + 1; b < chains.length; b++) {
+      const A = chains[a], B = chains[b], pa = plain[A[0].bone.name], pb = plain[B[0].bone.name];
+      if (A.length !== B.length || pa.some((v, i) => Math.abs(v - pb[i]) > 1e-6)) continue;
+      alikePairs++;
+      const gap = Math.max(Math.abs(k(A[0]) - k(B[0])), Math.abs(d(A[0]) - d(B[0])));
+      if (gap < closest.gap) closest = { gap: +gap.toFixed(4), a: A[0].bone.name.slice(0, 22), b: B[0].bone.name.slice(0, 22) };
+    }
+    // Joints the drag floor holds still vary, upward from it.
+    const floored = pc.joints().filter((j) => !isBody(j) && Math.abs(plain[j.bone.name][1] - 0.12) < 1e-9).map((j) => j.settings.dragForce);
     const long = chains.filter((c) => c.length >= 3);
     const taper = long.map((c) => +(tapered[c[0].bone.name][0] / tapered[c[c.length - 1].bone.name][0]).toFixed(3));
     const ribbons = chains.filter((c) => /^ribbon/i.test(c[0].bone.name)).map((c) => [+k(c[0]).toFixed(4), +d(c[0]).toFixed(4)]);
@@ -264,15 +337,17 @@ function drift(a, b, key) {
     const stable = Object.keys(before).every((n) => after[n] && before[n].every((v, i) => Math.abs(v - after[n][i]) < 1e-9));
     pc.quiet();
     return {
-      bodyUntouched, bodyJoints: Object.keys(body0).length, chains: chains.length,
-      distinctChainFactors: new Set(factors).size, maxSpread: +Math.max(...spread).toFixed(4),
+      bodyUntouched, bodyJoints: Object.keys(body0).length, chains: chains.length, alikePairs, closestAlike: closest,
+      floored: floored.length ? { joints: floored.length, min: +Math.min(...floored).toFixed(4), max: +Math.max(...floored).toFixed(4) } : null,
+      maxSpread: +Math.max(...spread).toFixed(4),
       rootToTip: taper.length ? [Math.min(...taper), Math.max(...taper)] : null, ribbons, stable,
       anyVaried: Object.keys(plain).some((n) => Math.abs(plain[n][0] - varied[n][0]) > 1e-9),
     };
   });
   console.log('per-chain variation:', JSON.stringify(vary));
   expect(vary.bodyUntouched, 'variation changed a body spring');
-  expect(vary.anyVaried && vary.distinctChainFactors >= Math.min(vary.chains, 0.8 * vary.chains), 'chains share stiffness factors (lockstep)');
+  expect(vary.anyVaried && (vary.alikePairs === 0 || vary.closestAlike.gap >= 0.03), `chains authored alike end up ${vary.closestAlike.gap} apart in stiffness and drag (lockstep; want 0.03)`);
+  expect(!vary.floored || (vary.floored.min >= 0.12 - 1e-9 && vary.floored.max - vary.floored.min >= 0.03 * 0.12), 'joints at the drag floor all share one drag (no variation)');
   expect(vary.maxSpread <= 0.15 + 1e-6, `a chain varies by ${vary.maxSpread}, over 15 percent`);
   expect(vary.rootToTip && vary.rootToTip[0] >= 1.3 && vary.rootToTip[1] <= 1.7, 'long chains are not about 1.5 times stiffer at the root');
   expect(vary.ribbons.length === 2 && (vary.ribbons[0][0] !== vary.ribbons[1][0] || vary.ribbons[0][1] !== vary.ribbons[1][1]), 'the two ribbons move in lockstep');
@@ -309,7 +384,7 @@ function drift(a, b, key) {
     bouncy[k] = { drag: bouncyRuns.drag[k], swingsAfterLanding: s.swings, settleAfterLanding: s.settle };
   }
   console.log('bouncy, after a hop at 60 fps:', JSON.stringify(bouncy));
-  for (const k of ['hair', 'ribbon']) {
+  for (const k of ['hair', 'ribbon', 'skirt']) {
     expect(bouncy[k] && bouncy[k].swingsAfterLanding <= 6 && bouncy[k].settleAfterLanding <= 1.5, `${k} under Bouncy swings ${bouncy[k]?.swingsAfterLanding} times over ${bouncy[k]?.settleAfterLanding} s (jelly)`);
   }
 

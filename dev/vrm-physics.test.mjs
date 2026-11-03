@@ -1,8 +1,9 @@
 // Physics checks that need no browser: the exact springs (js/spring-damper.js),
 // the body rig's frame-rate independence (js/vrm-body.js), cone limits
-// (js/vrm-limits.js, including three-vrm's own VRMSpringBoneLimitCone cases)
-// and the spring controller's drag floor, per-chain variation and hair cones
-// (js/vrm-physics.js) on a small synthetic rig.
+// (js/vrm-limits.js, including three-vrm's own VRMSpringBoneLimitCone cases,
+// and colliders winning over a cone), the spring controller's drag floor,
+// per-chain variation and hair cones (js/vrm-physics.js) on a small
+// synthetic rig, and bad inputs to all of them.
 //   node --test dev/vrm-physics.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,6 +12,7 @@ import { spring, advance, kick } from '../js/spring-damper.js';
 import { createBody } from '../js/vrm-body.js';
 import { SpringConeLimit, setCone, coneOf } from '../js/vrm-limits.js';
 import { createSprings, DRAG_FLOOR, PRESETS } from '../js/vrm-physics.js';
+import { attachStrip } from '../js/vrm-accessory.js';
 
 const REGIMES = [{ hz: 2.5, ratio: 0.4 }, { hz: 1.3, ratio: 1 }, { hz: 1.5, ratio: 1.7 }];
 const close = (a, b, eps, label) => assert.ok(Math.abs(a - b) <= eps, `${label}: ${a} vs ${b}`);
@@ -146,6 +148,45 @@ test('a limited joint stays in its cone and stores the tail it was clamped to', 
   assert.equal(Object.hasOwn(held.j, 'update'), false);
 });
 
+test('a collider wins over a cone, and a tail it held past the rim eases back', () => {
+  const parent = new T.Object3D(), bone = new T.Bone(), child = new T.Bone();
+  parent.add(bone); bone.add(child); child.position.set(0, -0.1, 0);
+  // A ball filling the cone under the bone: the tail can only sit outside it about 47 degrees out.
+  const ball = new T.VRMSpringBoneCollider(new T.VRMSpringBoneColliderShapeSphere({ radius: 0.08 }));
+  ball.position.set(0.005, -0.1, 0);
+  parent.add(ball);
+  parent.updateMatrixWorld(true);
+  ball.updateWorldMatrix(true, false);
+  const j = new T.VRMSpringBoneJoint(bone, child, { stiffness: 0.3, gravityPower: 0, dragForce: 0.4 }, [{ colliders: [ball] }]);
+  j.setInitState();
+  setCone(j, 30);
+  const tip = new T.Vector3(), n = new T.Vector3();
+  const step = () => { bone.updateMatrix(); bone.updateWorldMatrix(false, false); j.update(1 / 60); child.updateWorldMatrix(false, false); return child.getWorldPosition(tip); };
+  const angle = () => Math.acos(Math.min(1, -tip.clone().normalize().y)) * DEG;
+  for (let i = 0; i < 90; i++) step();
+  // A free joint settles 0.6 mm inside (the vendored push-out, then back to bone length); the rim is 23 mm in.
+  const inside = -ball.shape.calculateCollision(ball.colliderMatrix, tip, 0, n);
+  assert.ok(inside < 0.001, `the tail sits ${inside * 1000} mm inside the ball`);
+  const held = angle();
+  assert.ok(held > 40, `held at ${held} degrees, not past the 30 degree rim`);
+  // Take the ball away: the tail comes back over several steps, not in one.
+  j.colliderGroups = [];
+  let last = held, biggest = 0;
+  for (let i = 0; i < 90; i++) { step(); biggest = Math.max(biggest, last - angle()); last = angle(); }
+  assert.ok(last <= 30 + 1e-6, `still ${last} degrees out after 1.5 s`);
+  assert.ok(biggest < 0.5 * (held - 30), `one step took back ${biggest} of ${held - 30} degrees (a snap)`);
+});
+
+test('a joint whose limit is cleared behind setCone() runs the plain update', () => {
+  const vrm = springRig(), mgr = vrm.springBoneManager, j = [...mgr.joints][0];
+  setCone(j, 40);
+  j.limit = null;
+  assert.doesNotThrow(() => mgr.update(1 / 60));
+  j.limit = {};
+  assert.doesNotThrow(() => mgr.update(1 / 60));
+  assert.ok(Number.isFinite(j.bone.quaternion.x));
+});
+
 /** A head with two hair chains, a skirt chain with pixiv's 0.05 drag, and a bust pair. */
 function springRig() {
   const scene = new T.Group(), head = new T.Bone(), hips = new T.Bone();
@@ -194,8 +235,15 @@ test('springs keep a drag floor, vary each chain but never the body, and limit t
   close(a.reduce((n, j) => n + j.settings.stiffness, 0) / a.length, 0.5, 1e-12, 'mean stiffness kept');
   springs.set({ vary: 0.15 });
   assert.deepEqual(by(/bust/i).map((j) => [j.settings.stiffness, j.settings.dragForce]), bust0);
-  assert.notEqual(a[0].settings.stiffness, b[0].settings.stiffness);
+  // The two hair chains are authored alike, so they are spread across the range, not drawn close.
+  const [ka, kb] = [a[0].settings.stiffness, b[0].settings.stiffness];
+  close(Math.max(ka, kb) / Math.min(ka, kb), 1.15 / 0.85, 1e-9, 'alike chains spread to both ends');
   assert.notEqual(a[0].settings.dragForce, b[0].settings.dragForce);
+  // The skirt sits on the drag floor and still varies, upward from it.
+  const skirtDrag = (vary) => (springs.set({ vary }), by(/skirt/i)[0].settings.dragForce);
+  assert.equal(skirtDrag(0), DRAG_FLOOR);
+  assert.ok(skirtDrag(0.15) > DRAG_FLOOR && skirtDrag(0.15) <= DRAG_FLOOR * 1.15 + 1e-12, `floored skirt drag ${skirtDrag(0.15)}`);
+  springs.set({ vary: 0.15 });
   for (const j of [...a, ...b]) {
     const plain = even.find((x) => x[0] === j.bone.name);
     assert.ok(Math.abs(j.settings.stiffness / plain[1] - 1) <= 0.15 + 1e-12, `${j.bone.name} varies past 15 percent`);
@@ -236,4 +284,67 @@ test('a joint with a cone of its own keeps it; opts.cones covers other names', (
   setCone(skirt2, 40);
   plain.set({ hairCone: 45 });
   assert.equal(Math.round(coneOf(skirt2)), 40);
+});
+
+test('pattern cones ignore global and sticky flags; a strip left free and a bangle stay free', () => {
+  for (const match of [/skirt/gi, /Skirt/y, /skirt/i]) {
+    const vrm = springRig(), springs = createSprings(vrm, { cones: [{ match, angle: 45 }] });
+    const skirt = [...vrm.springBoneManager.joints].filter((j) => /skirt/i.test(j.bone.name));
+    for (let i = 0; i < 3; i++) {
+      springs.set({ wind: 0 });
+      assert.ok(skirt.every((j) => Math.abs(coneOf(j) - 45) < 1e-9), `${match}: ${skirt.map(coneOf)}`);
+    }
+  }
+  const vrm = springRig(), head = vrm.scene.children[0];
+  vrm.humanoid.getRawBoneNode = () => head;
+  const springs = createSprings(vrm);
+  const strip = (name, cone) => attachStrip(vrm, { name, links: 3, cone }).joints;
+  const free = [...strip('hairTail', null), ...strip('hairTail2', 180), ...strip('bangle', undefined)];
+  springs.refresh();
+  springs.set({ hairCone: 40 });
+  assert.deepEqual(free.slice(0, 6).map(coneOf), [null, null, null, null, null, null]);
+  assert.ok(free.slice(6).every((j) => Math.abs(coneOf(j) - 60) < 1e-9), 'a bangle strip keeps its own 60 degrees');
+  assert.ok([...vrm.springBoneManager.joints].filter((j) => /^HairJoint/.test(j.bone.name)).every((j) => Math.abs(coneOf(j) - 40) < 1e-9));
+});
+
+test('settings that are undefined or not finite are ignored, and bad springs stay finite', () => {
+  const vrm = springRig(), springs = createSprings(vrm), joints = [...vrm.springBoneManager.joints];
+  const snap = () => joints.map((j) => [j.settings.stiffness, j.settings.dragForce, coneOf(j)]);
+  const before = snap(), state = { ...springs.state };
+  springs.set({ vary: undefined, taper: NaN, hairCone: Infinity, stiffness: '2', enabled: undefined, drag: null });
+  for (const k of ['vary', 'taper', 'hairCone', 'stiffness', 'enabled', 'drag']) assert.equal(springs.state[k], state[k], k);
+  assert.deepEqual(snap(), before);
+  vrm.scene.children[0].position.x = 0.1;
+  vrm.scene.updateMatrixWorld(true);
+  for (let i = 0; i < 60; i++) springs.step(1 / 60);
+  assert.equal(springs.state.resets, 0);
+  assert.ok(joints.every((j) => Number.isFinite(j.bone.quaternion.x)));
+  for (const bad of [{ hz: 0, ratio: 0.4 }, { hz: -2, ratio: 0.4 }, { hz: NaN, ratio: 0.4 }, { hz: 2, ratio: -1 }, { hz: 2, ratio: NaN }, { hz: 2, ratio: 1e6 }, { hz: Infinity, ratio: 0.5 }]) {
+    const sp = kick(spring(bad, 1), -0.06);
+    for (let i = 0; i < 120; i++) advance(sp, 1 / 60);
+    assert.ok(Number.isFinite(sp.x) && Number.isFinite(sp.v), `${JSON.stringify(bad)}: ${sp.x}, ${sp.v}`);
+  }
+  const body = createBody(fakeVRM(), { springs: { squash: { hz: 0 }, lean: { ratio: undefined }, tilt: { hz: NaN } } });
+  body.hop();
+  body.spin(NaN);
+  body.update(NaN);
+  for (let i = 0; i < 120; i++) body.update(1 / 60);
+  const squash = body.root.children[0].children[0];
+  assert.ok(Number.isFinite(squash.scale.y) && Number.isFinite(body.root.rotation.y) && Number.isFinite(body.root.position.y));
+  assert.equal(body.state.springs.lean.ratio, 0.6);
+});
+
+test('a teleport is not felt by the springs, even when the substeps split it', () => {
+  const swing = (fps) => {
+    const vrm = springRig(), body = createBody(vrm), springs = createSprings(vrm, { root: body.root });
+    const head = vrm.scene.children[0], tip = [...vrm.springBoneManager.joints].filter((j) => /HairJoint-a/.test(j.bone.name)).at(-1);
+    const local = () => head.worldToLocal(tip.child.getWorldPosition(new T.Vector3()));
+    for (let i = 0; i < 60; i++) { body.update(1 / 60); springs.step(1 / 60); }
+    const rest = local();
+    body.root.position.y += 0.8; // the host re-centres her
+    let far = 0;
+    for (let i = 0; i < fps; i++) { body.update(1 / fps); springs.step(1 / fps); far = Math.max(far, local().distanceTo(rest)); }
+    return far;
+  };
+  for (const fps of [30, 60, 120]) assert.ok(swing(fps) < 0.002, `a 0.8 m jump at ${fps} fps swings the hair ${swing(fps)} m`);
 });
