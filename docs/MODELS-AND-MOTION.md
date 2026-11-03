@@ -45,7 +45,7 @@ constraint is licensing, not code:
 | Motion layers: clips, idle, gestures, gaze with saccades, petting, dozing, case-insensitive expressions | `js/vrm-motion.js` | `node dev/lab-check.cjs` |
 | Spring controller on three-vrm's own manager: presets, wind, fixed 60 Hz substeps with the rig (root, lean, squash) interpolated across them, proxy center (Carry swing), body cap and Bounce, touch impulses, NaN recovery, a drag floor of 0.12, per-chain variation, cone limits on hair | `js/vrm-physics.js`, `js/vrm-limits.js` | `node dev/physics-check.cjs`: after a hop the longest hair chain swings 3 times after landing at 30, 60 and 120 fps and settles in 0.47 to 0.49 s (was 2 to 3 swings, 0.50 to 0.59 s); body moves 0.2 mm under a touch that moves hair 2 cm |
 | Whole-body rig: carry, toss, landing bounce, squash, lean, twirl, as exact damped springs with closed-form flight | `js/vrm-body.js`, `js/spring-damper.js` | squash and lean curves identical at 30, 60 and 120 fps (drift was 0.048 in scale, 0.027 rad in lean); a 2.4 m/s hop lands with 6.2 percent squash at every rate (was 6 to 8, clamped); twirl settles facing front |
-| Runtime accessories with physics (ribbons), each link held to a 60 degree cone | `js/vrm-accessory.js` | tails swing from 0.06 to 0.25 m in a twirl; no ribbon joint passes 60 degrees from rest in twirls and a toss (was 104) |
+| Runtime accessories with physics (ribbons), each link held within 60 degrees of the link above it | `js/vrm-accessory.js` | tails swing from 0.05 to 0.25 m in a twirl; the ribbon cones rarely engage, so a strip still trails out to 123 degrees from rest in a 6 m/s toss, as it does without them |
 | Doll Lab: drop a `.vrm`/`.vrma`, sliders, moods, gestures, spring and collider overlay | `dev/lab.html` | no console errors |
 
 Not yet done: the companion (`index.html`) still uses the earlier renderer;
@@ -109,25 +109,42 @@ most; MMD physics, ammo.js and cannon-es do not fit). Applied in the Lab:
 - Fixed 60 Hz substeps with the root, and the lean and squash groups under
   it, interpolated across them.
 - A proxy center following the root's travel: Carry swing sets the share of
-  carrying and tossing the springs feel; twirls are always felt in full.
+  carrying and tossing the springs feel; twirls are always felt in full. A
+  jump of more than 0.45 m since the last step is a teleport the springs
+  never feel, at any frame rate (at 30 fps the substeps used to split a
+  0.8 m re-centre into two moves small enough to feel, swinging hair 14 cm).
 - Body springs capped at stiffness 1.0 and drag 0.35 or stiffer, whatever the
   file authored (pixiv's bust is 0.75/0.05, very bouncy); Bounce scales from
   still to that cap; presets, variation and touch never loosen the body.
   Hair, skirts, ribbons, ears and tails carry the jiggle.
-- A drag floor of 0.12 on every other joint, after presets, sliders and
-  variation. Bouncy used to turn pixiv's 0.05 skirt drag into 0.03, which
-  swung 8 times over 2.2 s after a hop; at the floor it swings 5 times over
-  1.0 s.
-- Per-chain variation: each chain's stiffness and drag move by a fixed share
-  (up to 12 percent either way) derived from its root bone's name, the same
-  on every load, refresh and preset, so strands never swing in lockstep;
-  chains of three joints or more are 1.5 times stiffer at the root than at
-  the tip, keeping their mean, unless the file graded them already.
+- A drag floor of 0.12 on every other joint, after presets and sliders,
+  with the variation riding on it (a floored chain rises from it by up to
+  12 percent). Bouncy used to turn pixiv's 0.05 skirt drag into 0.03, which
+  swung 8 times over 2.2 s after a hop; now 4 times over 0.8 s.
+- Per-chain variation: each chain's stiffness and drag move by up to 12
+  percent either way, the same on every load, refresh and preset. Chains
+  the file authored alike (the six skirt panels, the four sleeves, the two
+  ribbons, hair groups) are spread evenly across that range, so the closest
+  two differ by 4.8 percent (shares drawn from their names came within 0.8,
+  and the floored ones shared one drag); any other chain takes its share
+  from its root bone's name. Chains of three joints or more are 1.5 times
+  stiffer at the root than at the tip, keeping their mean, unless the file
+  graded them already.
 - Cone limits, ported from three-vrm's `springbone-limit` branch (commit
-  4f61363, MIT) without editing the bundle: hair 50 degrees per joint
-  (`hairCone`; without it a hair joint reached 162 degrees in twirls and a
-  toss), ribbons 60. The clamped tail is the one stored for the next step,
-  so nothing snaps.
+  4f61363, MIT) without editing the bundle: each hair link stays within 50
+  degrees (`hairCone`) of the link above it, each ribbon link within 60.
+  That stops a lock kinking at one joint, not curling as a whole: in a 6 m/s
+  toss a hair lock still swings 136 degrees from rest (170 without cones)
+  and a ribbon 123 (the same without). Upstream's hard clamp made hair pop
+  and clip in hard tosses (a tip jumping 22 cm in one frame against 6 cm
+  free, a tail 51 mm inside a body collider against 9 mm), so the port lets
+  colliders act last, in two passes, eases a tail a collider held past its
+  rim back over about 0.15 s instead of snapping it, and halves the speed
+  of a tail the rim stops. Over sixteen moves at 60 fps, coned hair now
+  sits 3 mm less deep in colliders than free hair on average (4.4 mm more
+  at worst, in the 6 m/s toss), and its biggest single-frame jump is at
+  most 2.7 cm larger; at 30 fps one move, the same toss, clips 8.5 mm
+  deeper.
 - Lean, tilt, squash and the twirl are exact damped springs (Spring-It-On's
   closed form, MIT): squash 2.5 Hz at damping ratio 0.4, lean 1.3 Hz at 0.6,
   the twirl critically damped into a whole turn. Flight is solved in closed

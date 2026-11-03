@@ -56,7 +56,7 @@
           <label class="slider">Squash damping <output id="o-squash-ratio"></output><input type="range" id="squash-ratio" min="0.2" max="1" step="0.05" value="0.4"></label>
           <label class="slider">Lean spring <output id="o-lean-hz"></output><input type="range" id="lean-hz" min="0.6" max="2.5" step="0.1" value="1.3"></label>
           <label class="slider">Lean damping <output id="o-lean-ratio"></output><input type="range" id="lean-ratio" min="0.2" max="1" step="0.05" value="0.6"></label>
-          <p class="muted">Variation gives each strand its own stiffness and drag, so strands never swing in lockstep; the body is never varied. Hair cone is how far each hair joint may swing from rest (180 is free); ribbons keep their own 60 degree cone. Squash and lean are the whole-body springs, in hertz and damping ratio (1 never overshoots).</p>
+          <p class="muted">Variation gives each strand its own stiffness and drag, so strands never swing in lockstep; the body is never varied. Hair cone is how far each link of a lock may swing from its rest direction relative to the link above it (180 is free): it stops kinks, not every curl, and the body's colliders win over it. Ribbons keep their own 60 degree cone. Squash and lean are the whole-body springs, in hertz and damping ratio (1 never overshoots).</p>
         </details>
       </section>
 
