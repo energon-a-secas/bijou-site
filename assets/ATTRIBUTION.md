@@ -47,8 +47,11 @@ geometry and textile patterns are procedural project code.
 
 `js/vendor/avatar-engine.js` is a pinned, local ESM bundle of:
 
-- Three.js **0.180.0**, MIT; `js/vendor/THREE-LICENSE.txt`.
-- @pixiv/three-vrm **3.4.2**, MIT; `js/vendor/THREE-VRM-LICENSE.txt`.
+- Three.js **0.180.0**, MIT; `js/vendor/THREE-LICENSE.txt`, including the
+  GLTFLoader, OrbitControls and SkeletonUtils addons.
+- @pixiv/three-vrm **3.5.5**, MIT; `js/vendor/THREE-VRM-LICENSE.txt`.
+- @pixiv/three-vrm-animation **3.5.5**, MIT (VRMA loading and clips);
+  `js/vendor/THREE-VRM-ANIMATION-LICENSE.txt`.
 
 Bundled with esbuild 0.25.10; no runtime CDN or build step is required.
 `dev/vendor-avatar.sh` documents the reproducible bundle command.

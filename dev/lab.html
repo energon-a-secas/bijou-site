@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Bijou Doll Lab</title>
+  <link rel="stylesheet" href="lab.css">
+</head>
+<body>
+  <main class="lab">
+    <section class="view" aria-label="3D view">
+      <canvas id="view"></canvas>
+      <p class="status" id="status" role="status" aria-live="polite">Loading the doll…</p>
+      <p class="hint">Drag her to carry and toss her. Tap her head for a pat. Drag empty space to orbit. Drop a <code>.vrm</code> or <code>.vrma</code> file anywhere.</p>
+    </section>
+    <aside class="panel" aria-label="Lab controls">
+      <h1>Doll Lab</h1>
+
+      <section>
+        <h2>Model</h2>
+        <label class="file">Load a VRM or VRMA file<input type="file" id="file" accept=".vrm,.vrma,.glb" multiple></label>
+        <dl class="info" id="info"></dl>
+      </section>
+
+      <section>
+        <h2>Moves</h2>
+        <div class="chips" id="gestures"></div>
+        <div class="chips">
+          <button type="button" data-act="hop">Hop</button>
+          <button type="button" data-act="spin">Twirl</button>
+          <button type="button" data-act="toss">Toss</button>
+          <button type="button" data-act="talk">Talk</button>
+        </div>
+        <h3>Animation files</h3>
+        <div class="chips" id="clips"><span class="muted">None yet. Drop a .vrma file.</span></div>
+        <label class="row"><input type="checkbox" id="idle" checked> Idle breathing and sway</label>
+      </section>
+
+      <section>
+        <h2>Physics</h2>
+        <div class="chips" id="presets"></div>
+        <label class="slider">Stiffness <output id="o-stiffness"></output><input type="range" id="stiffness" min="0.2" max="2" step="0.05" value="1"></label>
+        <label class="slider">Gravity <output id="o-gravity"></output><input type="range" id="gravity" min="0" max="2" step="0.05" value="1"></label>
+        <label class="slider">Drag <output id="o-drag"></output><input type="range" id="drag" min="0.2" max="2" step="0.05" value="1"></label>
+        <label class="slider">Wind <output id="o-wind"></output><input type="range" id="wind" min="0" max="0.6" step="0.02" value="0"></label>
+        <label class="row"><input type="checkbox" id="springs" checked> Spring physics</label>
+      </section>
+
+      <section>
+        <h2>Face</h2>
+        <div class="chips" id="moods"></div>
+        <label class="row"><input type="checkbox" id="follow" checked> Follow the pointer</label>
+        <label class="row"><input type="checkbox" id="blink" checked> Blink</label>
+      </section>
+
+      <section>
+        <h2>View</h2>
+        <div class="chips">
+          <button type="button" data-view="full">Full figure</button>
+          <button type="button" data-view="face">Face</button>
+          <button type="button" data-view="side">Side</button>
+        </div>
+        <label class="row"><input type="checkbox" id="clay"> Clay preview (ignore textures)</label>
+        <p class="stats" id="stats"></p>
+      </section>
+    </aside>
+  </main>
+  <script type="module" src="lab.js"></script>
+</body>
+</html>
