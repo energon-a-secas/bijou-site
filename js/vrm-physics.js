@@ -7,7 +7,7 @@
 // motion by themselves, which is where most of the visible life comes from.
 
 import * as T from './vendor/avatar-engine.js';
-import { setCone } from './vrm-limits.js';
+import { setCone, coneOwner } from './vrm-limits.js';
 
 export { createBody, BODY_SPRINGS } from './vrm-body.js';
 
@@ -32,11 +32,14 @@ const BODY_MIN = { stiffness: 1, drag: 0.35 };
 // variation: pixiv's skirt drag (0.05) under Bouncy (x0.6) would be 0.03,
 // which swings eight times over two seconds after a hop: jelly.
 export const DRAG_FLOOR = 0.12;
-// Hair takes a cone limit (state.hairCone, degrees from each joint's rest
-// direction), so a toss or a twirl cannot flip a lock over the head. Cones
-// the controller assigns by name carry this owner; any other cone is the
-// joint's own (a runtime accessory's, a caller's, or one the file authored).
-const HAIR = /hair|bang|fringe|ahoge|braid|ponytail|twintail/i;
+// Hair takes a cone limit (state.hairCone, degrees each link may swing from
+// its rest direction relative to the link above it), so no single joint of
+// a lock can kink over; a long lock can still curl over the head in a hard
+// toss (js/vrm-limits.js). Cones the controller assigns by name carry this
+// owner; any other cone is the joint's own (a runtime accessory's, a
+// caller's, or one the file authored), and so is a joint an owner holds free.
+// "bang" must end the word, so a bangle is not hair.
+const HAIR = /hair|bangs?(?![a-z])|fringe|ahoge|braid|ponytail|twintail/i;
 const BY_NAME = 'vrm-physics';
 const _v = new T.Vector3();
 const _q = new T.Quaternion();
@@ -61,13 +64,23 @@ function unit(str) {
   return (h >>> 0) / 2 ** 31 - 1;
 }
 
+const PHI = (Math.sqrt(5) - 1) / 2;
+const near = (a, b, abs = 0) => Math.abs(a - b) <= 0.02 * Math.max(Math.abs(a), Math.abs(b)) + abs;
+/** Chains authored alike: the same length, and stiffness, drag and gravity within 2 percent. */
+const alike = (p, q) => p.len === q.len && near(p.b.stiffness, q.b.stiffness) && near(p.b.dragForce, q.b.dragForce) && near(p.b.gravityPower, q.b.gravityPower, 0.005);
+
 /**
  * Per-chain variation. A chain is a root joint and the joints hanging from
- * it. Each chain gets its own stiffness and drag factors from its root
- * bone's name, so strands differ from each other but are the same on every
- * load, refresh and preset; nothing here is random per frame. `along` runs
- * 0 at the root to 1 at the tip of chains of three joints or more, unless
- * the file already graded their stiffness.
+ * it, and each gets its own stiffness and drag factors (-1 to 1, scaled by
+ * state.vary). Chains the file authored alike (a skirt's panels, a pair of
+ * sleeves, a hair group) would swing in lockstep on factors drawn at random,
+ * so they are spread evenly across the range instead, ordered by their
+ * names: stiffness in even steps, drag on a golden-ratio stride, so no two
+ * of them share a factor. Any other chain takes its factors from its root
+ * bone's name. All of it is the same on every load, refresh and preset;
+ * nothing here is random per frame. `along` runs 0 at the root to 1 at the
+ * tip of chains of three joints or more, unless the file already graded
+ * their stiffness.
  */
 function chainUp(records) {
   const byBone = new Map(records.map((x) => [x.j.bone, x]));
@@ -79,15 +92,26 @@ function chainUp(records) {
     if (!chains.has(top)) chains.set(top, []);
     chains.get(top).push(x);
   }
+  const list = [];
   for (const [top, chain] of chains) {
     const key = top.name || top.position.toArray().map((n) => n.toFixed(3)).join(',');
     const len = Math.max(...chain.map((x) => x.depth)) + 1;
     const even = chain.every((x) => Math.abs(x.base.stiffness - chain[0].base.stiffness) < 1e-6);
-    for (const x of chain) {
-      x.vk = unit(`${key}|stiffness`);
-      x.vd = unit(`${key}|drag`);
-      x.along = len >= 3 && even ? x.depth / (len - 1) : null;
-    }
+    for (const x of chain) x.along = len >= 3 && even ? x.depth / (len - 1) : null;
+    const b = (chain.find((x) => x.depth === 0) || chain[0]).base;
+    if (!chain[0].body) list.push({ key, len, chain, b, u: unit(key) });
+  }
+  list.sort((p, q) => p.len - q.len || p.b.stiffness - q.b.stiffness || p.b.dragForce - q.b.dragForce || p.b.gravityPower - q.b.gravityPower || p.u - q.u);
+  for (let i = 0; i < list.length;) {
+    let k = i + 1;
+    while (k < list.length && alike(list[k - 1], list[k])) k++;
+    const group = list.slice(i, k).sort((p, q) => p.u - q.u), n = group.length;
+    group.forEach((c, r) => {
+      const vk = n > 1 ? -1 + 2 * r / (n - 1) : unit(`${c.key}|stiffness`);
+      const vd = n > 1 ? 2 * ((0.5 + r * PHI) % 1) - 1 : unit(`${c.key}|drag`);
+      for (const x of c.chain) { x.vk = vk; x.vd = vd; }
+    });
+    i = k;
   }
 }
 
@@ -95,7 +119,8 @@ function chainUp(records) {
  * Spring control for one VRM. With opts.root (the body rig's root), every
  * joint simulates in a proxy center space that follows part of the root's
  * travel: `inertia` is the share of carrying and tossing the springs feel
- * (0 none, 1 all of it); spins are always felt in full. The motion of the
+ * (0 none, 1 all of it); spins are always felt in full, and a jump of more
+ * than 0.45 m since the last step (a teleport) never is. The motion of the
  * root and of the rig groups under it (lean, squash) is also spread across
  * the fixed substeps, so a 30 Hz frame does not kick twice as hard as a
  * 60 Hz one.
@@ -104,14 +129,19 @@ function chainUp(records) {
  * bounce (body springs, 0 still to 1 capped); inertia; vary (each chain's
  * stiffness and drag spread, 0 to 0.15); taper (root over tip stiffness on
  * long chains, 1 for even); hairCone (degrees, 180 for free); reduced.
+ * Undefined values, and numbers that are not finite, are ignored.
  * opts.cones: [{ match: RegExp, angle: degrees }] for other bone names,
- * checked before the hair rule. A joint with a cone of its own keeps it.
+ * checked before the hair rule (global and sticky flags are dropped). A
+ * joint with a cone of its own keeps it, and so does one its owner holds
+ * free (a strip attached with `cone: null`).
  */
 export function createSprings(vrm, opts = {}) {
   const mgr = vrm.springBoneManager || null;
   const root = opts.root || null;
   const proxy = root ? new T.Object3D() : null;
-  const patterns = opts.cones || [];
+  // A global or sticky pattern would carry lastIndex from one bone name to the next.
+  const plain = (re) => (re instanceof RegExp ? new RegExp(re.source, re.flags.replace(/[gy]/g, '')) : new RegExp(String(re), 'i'));
+  const patterns = (opts.cones || []).map((c) => ({ match: plain(c.match), angle: c.angle }));
   // The rig from the root down to the model: root, lean, squash.
   const rig = [];
   if (root) {
@@ -157,20 +187,24 @@ export function createSprings(vrm, opts = {}) {
   function settle(windNow) {
     const bounce = clamp(st.bounce, 0, 1);
     const vary = clamp(st.vary, 0, 0.15), taper = Math.max(1, st.taper);
+    const stiffness = Math.max(0, st.stiffness), drag = Math.max(0, st.drag), gravity = Math.max(0, st.gravity);
     for (const x of joints) {
       const { j, body, base } = x, s = j.settings;
       if (body) {
-        const drag = clamp(Math.max(base.dragForce, BODY_MIN.drag) * Math.max(1, st.drag), 0, 1);
+        const d = clamp(Math.max(base.dragForce, BODY_MIN.drag) * Math.max(1, drag), 0, 1);
         // Stiffness rises steeply as bounce falls, so the swing scales about linearly.
-        s.stiffness = Math.max(base.stiffness, BODY_MIN.stiffness) * Math.max(1, st.stiffness) * (1 + 6 * (1 / Math.max(bounce, 0.02) - 1));
-        s.dragForce = drag + (1 - drag) * (1 - bounce);
+        s.stiffness = Math.max(base.stiffness, BODY_MIN.stiffness) * Math.max(1, stiffness) * (1 + 6 * (1 / Math.max(bounce, 0.02) - 1));
+        s.dragForce = d + (1 - d) * (1 - bounce);
       } else {
         // Root over tip is `taper`, keeping the chain's mean stiffness.
         const grade = x.along == null ? 1 : 2 * (taper - (taper - 1) * x.along) / (1 + taper);
-        s.stiffness = base.stiffness * st.stiffness * (1 + vary * x.vk) * grade;
-        s.dragForce = clamp(Math.max(DRAG_FLOOR, base.dragForce * st.drag * (1 + vary * x.vd)), 0, 1);
+        s.stiffness = base.stiffness * stiffness * (1 + vary * x.vk) * grade;
+        // Variation rides on the floor too: a chain the floor holds (pixiv's
+        // 0.05 skirts) rises from it by its share of `vary` instead.
+        const d = base.dragForce * drag * (1 + vary * x.vd);
+        s.dragForce = clamp(d >= DRAG_FLOOR ? d : DRAG_FLOOR * (1 + vary * (1 + x.vd) / 2), 0, 1);
       }
-      g.copy(base.gravityDir).multiplyScalar(base.gravityPower * (body ? 1 : st.gravity));
+      g.copy(base.gravityDir).multiplyScalar(base.gravityPower * (body ? 1 : gravity));
       if (!body) g.y -= st.heft;
       if (!body && windNow) g.addScaledVector(st.windDir, windNow);
       const len = g.length();
@@ -183,7 +217,8 @@ export function createSprings(vrm, opts = {}) {
   /** Cone limits by bone name: opts.cones first, then hair at state.hairCone. */
   function limit() {
     for (const { j, body } of joints) {
-      if (body || (j.limit && j.limit.owner !== BY_NAME)) continue;
+      const owner = coneOwner(j);
+      if (body || (owner !== undefined && owner !== BY_NAME)) continue;
       const name = j.bone.name;
       const rule = patterns.find((c) => c.match.test(name));
       setCone(j, rule ? rule.angle : HAIR.test(name) ? st.hairCone : null, BY_NAME);
@@ -214,6 +249,9 @@ export function createSprings(vrm, opts = {}) {
     started = true;
     st.acc += dt;
     const n = Math.min(5, Math.floor(st.acc / STEP));
+    // A jump this large since the last step is a teleport or re-centre, even
+    // when the substeps below split it into pieces too small to look like one.
+    const jumped = !!root && frames[0].p1.distanceTo(frames[0].p0) > 0.45;
     for (let i = 1; i <= n; i++) {
       st.t += STEP;
       if (st.wind) settle(gust(st.t));
@@ -230,7 +268,7 @@ export function createSprings(vrm, opts = {}) {
           root.getWorldPosition(_p);
           _v.copy(_p).sub(proxy.userData.last || _p);
           // A jump this large is a teleport or re-centre: the springs should not feel it.
-          const share = _v.length() > 0.45 ? 1 : 1 - clamp(st.inertia, 0, 1);
+          const share = jumped || _v.length() > 0.45 ? 1 : 1 - clamp(st.inertia, 0, 1);
           proxy.position.addScaledVector(_v, share);
           proxy.updateMatrixWorld(true);
           (proxy.userData.last ||= new T.Vector3()).copy(_p);
@@ -252,7 +290,11 @@ export function createSprings(vrm, opts = {}) {
 
   function set(values) {
     const wasReduced = st.reduced;
-    Object.assign(st, values);
+    for (const [k, v] of Object.entries(values || {})) {
+      // undefined, NaN or a string where a number belongs would poison every joint.
+      if (v === undefined || (typeof st[k] === 'number' && !Number.isFinite(v))) continue;
+      st[k] = v;
+    }
     if (st.reduced && !wasReduced && mgr) recover();
     settle(gust(st.t));
     limit();
