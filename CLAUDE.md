@@ -17,7 +17,8 @@ Then open http://localhost:8897. It must be served over HTTP: the app is ES modu
 **Complete-model runtime (not yet in the companion).** `vrm-runtime.js` loads
 any VRM 0.x/1.0 and reads its licence metadata; `vrm-motion.js` layers clips,
 idle, gestures, gaze with saccades, petting and dozing; `vrm-physics.js` drives
-the model's own springs (fixed substeps, Carry swing proxy center, body cap and
+the model's own springs (fixed substeps, a drag floor, per-chain variation, cone
+limits from `vrm-limits.js`, Carry swing proxy center, body cap and
 Bounce, touch) plus the carry/toss/twirl rig; `vrm-accessory.js` adds physics
 ribbons. `dev/lab.html` (the Doll Lab) loads any dropped `.vrm`/`.vrma`. Which
 models and motion Bijou may ship, and why: `docs/MODELS-AND-MOTION.md`.
@@ -136,6 +137,7 @@ One Persist Kit store, `bijou-site:save` (version 1): name, body, head, outfit, 
 - Visual checks: `dev/sheet.html` renders a grid of static dolls from the real modules. `?m=poses`, `?m=items&slot=dress`, `?m=heads`, `?m=bodies`; `&c=6&h=290` sets columns and cell height; `&zoom=x,y,w,h` crops every doll to a viewBox. Check every new garment and pose there before the live page.
 - Doll Lab checks: `node dev/lab-check.cjs [outDir] [modelUrl]` with `make serve` running. Playwright resolves from the monorepo root `node_modules`; other copies may lack a browser.
 - Live 3D checks: `dev/model.html?look=seaglass&pose=stretch`; `window.study` exposes builds, poses, stepping and diagnostics. `&linear=1` enables source linear skinning for comparison. Run `node --test dev/avatar-math.test.mjs` after collision, morph or spring changes. Run `node dev/avatar-browser.cjs` for browser checks (Playwright and the local server are required).
+- Physics checks: `node dev/physics-check.cjs [outDir]` with a server running (`LAB_URL` for another port) measures hair swings and settling after a hop at 30, 60 and 120 fps, the rig's squash and lean curves across rates, cone limits through twirls and a toss, the drag floor and per-chain variation. `node --test dev/vrm-physics.test.mjs` checks the same math without a browser: exact springs (`spring-damper.js`), the body rig (`vrm-body.js`, re-exported by `vrm-physics.js`), the cone port (`vrm-limits.js`) and the controller.
 - Zero build step. Plain ES modules loaded by `js/app.js`.
 - Run `node --test dev/avatar-foundation.test.mjs` for support IK, corrective bounds, surface probes, chest controls and tailoring validation. `node dev/avatar-customization.cjs` checks the new editor controls, saved looks and floor/seat support in the browser.
 - Header and footer come from the shared kits. Do not add site-local `.neo-footer` or `.header-bar` CSS.
@@ -149,6 +151,7 @@ One Persist Kit store, `bijou-site:save` (version 1): name, body, head, outfit, 
 - **Shape mode owns its gestures.** Play interactions return early while editing. Gesture cancellation restores the preceding body; slider and pointer edits use the same validated values.
 - **Fit after shaping.** Garment allowance is applied to the shaped body, never passed through body-region classification. Keep anatomical and garment ease controls separate. Fitted and generated garments both need a meaningful result for every exposed tailoring control.
 - **Source springs are retired in the live renderer** (`avatar*.js`; the `vrm-*` runtime keeps a model's own springs). Retained bangs follow the head; generated hair guides own motion. Re-enabling the source spring manager causes fringe recoil on outfit rebuilds and breaks reduced-motion behavior.
+- **Spring settings belong to the controller.** `createSprings` remembers each joint's authored values once (for every later controller too) and rewrites `settings` on each `set()`, so change the controller's state, never a joint's settings. A joint given its own cone (`setCone`, as the ribbons are) keeps it; pattern cones are the controller's.
 - The drawing notes below apply to the **SVG fallback**.
 
 - **No gradient fills on limb pieces.** A per-piece `objectBoundingBox` gradient ends dark at one piece's edge and starts light at the next, so every elbow and knee seams. Skin and multi-piece garments use `cel()` with `dy: 0` (a sideways-only shadow crescent); single-piece shapes may shift diagonally.
