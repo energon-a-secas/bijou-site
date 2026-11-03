@@ -43,6 +43,7 @@ constraint is licensing, not code:
 | --- | --- | --- |
 | Model-agnostic loader (VRM 0.x and 1.0, licence metadata) | `js/vrm-runtime.js` | Lab shows embedded licence fields |
 | Motion layers: clips, idle, gestures, gaze with saccades, petting, dozing, case-insensitive expressions | `js/vrm-motion.js` | `node dev/lab-check.cjs` |
+| Behaviour (Phase 0b): per-bone priority with faded handoffs, idle scheduler and event hooks, AIRI pats, clips evaluated from their tracks | `js/vrm-motion.js`, `js/vrm-idle.js`, `js/vrm-touch.js`, `js/vrm-eyes.js`, `js/vrm-clips.js` | `node dev/behaviour-check.cjs`: dozes 61.2 s after the last attention, 10 of 10 strokes pat (3 to 5 pats each), 10 of 10 drags carry, the head yields to a tilt (33.4 to 19.6 degrees and back) |
 | Spring controller on three-vrm's own manager: presets, wind, fixed 60 Hz substeps with the rig (root, lean, squash) interpolated across them, proxy center (Carry swing), body cap and Bounce, touch impulses, NaN recovery, a drag floor of 0.12, per-chain variation, cone limits on hair | `js/vrm-physics.js`, `js/vrm-limits.js` | `node dev/physics-check.cjs`: after a hop the longest hair chain swings 3 times after landing at 30, 60 and 120 fps and settles in 0.47 to 0.49 s (was 2 to 3 swings, 0.50 to 0.59 s); body moves 0.2 mm under a touch that moves hair 2 cm |
 | Whole-body rig: carry, toss, landing bounce, squash, lean, twirl, as exact damped springs with closed-form flight | `js/vrm-body.js`, `js/spring-damper.js` | squash and lean curves identical at 30, 60 and 120 fps (drift was 0.048 in scale, 0.027 rad in lean); a 2.4 m/s hop lands with 6.2 percent squash at every rate (was 6 to 8, clamped); twirl settles facing front |
 | Runtime accessories with physics (ribbons), each link held within 60 degrees of the link above it | `js/vrm-accessory.js` | tails swing from 0.05 to 0.25 m in a twirl; the ribbon cones rarely engage, so a strip still trails out to 123 degrees from rest in a 6 m/s toss, as it does without them |
@@ -75,9 +76,12 @@ girl); Sketchfab fan uploads.
 
 ## Animation
 
-Playback is solved: `createVRMAnimationClip` with an `AnimationMixer`, mixer
-before humanoid and springs (already in `vrm-motion.js`). Every source below
-was checked by a separate verifier on the creator's own page.
+Playback is solved: `createVRMAnimationClip`, evaluated straight from its
+tracks by `js/vrm-clips.js` before the humanoid and springs update. An
+`AnimationMixer` writes a value only when it changed since the last frame, and
+`vrm-motion.js` resets every bone each frame, so under the mixer a clip that
+held a pose (or a play-once clip at its end) fell back to the rest pose.
+Every source below was checked by a separate verifier on the creator's own page.
 
 - **Bundle (verified):**
   - rerofumi's 8 VRMA gestures, CC0 ([BOOTH 5527394](https://booth.pm/ja/items/5527394), 4.42 MB): a greeting, cheering, a startled jolt.
@@ -179,13 +183,38 @@ Never build items in VRoid Studio.
 
 What makes Desktop Mate, Mate Engine, Amica and AIRI feel alive: an authored
 model, a pool of hand-made clips rotated with long crossfades (Mate Engine
-ships 128; a single idle loop reads as dead), and reactions. In the Lab now:
-drag sway, cursor gaze with saccades, pats distinct from pickups (a stroke on
-the head pets; only press-and-hold there carries), dozing after a minute
-alone, startle on pickup. Next: an idle scheduler (start, loop and end clips,
-rotate about every 12 s with about 3 s blends), MIT code from Project AIRI and
-pixiv ChatVRM where it helps (keep their notices). Bundle nothing from any
-companion app.
+ships 128; a single idle loop reads as dead), and reactions. In the Lab now
+(Phase 0b):
+
+- Per-bone priority, lowest first: default, idle, tracking, one-shot,
+  expression, physics (VTube Studio's order). A higher layer takes a bone over
+  with a faded weight, so the gaze on head and neck yields to gestures and
+  clips instead of fighting them, and the dangle while held wins over all.
+- An idle scheduler (`js/vrm-idle.js`): a weighted pool, never the same twice
+  in a row, a new idle about every 12 s with jitter and about 3 s blends, start,
+  loop and end parts, procedural today (weight shifts, sway, hands, glances,
+  stretch, think) and VRMA clips later through `addIdle`. Drag, toss, fall and
+  land are event-only behaviours the caller fires. After 60 s alone she dozes
+  and a slower pool of sleepy poses rotates; a drag or a look wakes her.
+  Attention lapses to 35 percent after 6 s without a look, so her idles show.
+- Pats (`js/vrm-touch.js`, ported from Project AIRI with its MIT notice): a
+  tap moves at most 8 px within 450 ms; a pat is a stroke over the head that
+  turns back, and each further 70 px is another pat. Each pat is an impulse
+  (rises in 0.15 s, fades over 0.7 s, up to 8 overlap): the head dips 5
+  degrees and leans 9 into the hand, the eyes go soft and smiling. Press and
+  hold on the head, or any press below the neck, still picks her up.
+- Eyes (`js/vrm-eyes.js`): AIRI's saccade gaps (400 ms steps from 800 ms),
+  about one hop in five back to eye contact; a new emotion waits for a blink
+  in progress to reopen and auto-blinks pause while an emotion shows; the eyes
+  yield to a clip's own gaze by 1 - smoothstep(30, 90 degrees) (ChatVRM's two
+  ideas, no code taken).
+- Breathing and drift from summed sines whose periods were searched so that
+  no 6 s stretch comes within 6 percent of repeating in five minutes; the
+  cursor gaze turns the spine up to 15 degrees, split 1.0, 0.8 and 0.6 over
+  spine, chest and upper chest (Mate Engine's numbers, our code).
+
+Next: feed approved VRMA idles and reactions to `addIdle`, and judge the
+procedural repertoire by eye in the Lab. Bundle nothing from any companion app.
 
 ## Waiting on the owner
 

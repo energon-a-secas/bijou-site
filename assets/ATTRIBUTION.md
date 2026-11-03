@@ -64,3 +64,4 @@ Three instance. Rebuild with `sh dev/vendor-model-exporter.sh`.
 
 - `js/spring-damper.js` ports the exact spring-damper from Daniel Holden's [Spring-It-On](https://github.com/orangeduck/Spring-It-On) (`common.h` at commit 4d97b49), MIT, Copyright (c) 2021 Daniel Holden; the notice is in the file header.
 - `js/vrm-limits.js` ports the cone limit and limit-aware joint update from @pixiv/three-vrm's `springbone-limit` branch (commit 4f61363, `packages/three-vrm-springbone`), MIT, Copyright (c) 2019-2026 pixiv Inc.; the notice is in the file header.
+- `js/vrm-touch.js` (tap and pat recogniser, touch reaction) and `js/vrm-eyes.js` (saccade gap table) port parts of [Project AIRI](https://github.com/moeru-ai/airi) at commit ded3dd1, **MIT**, Copyright (c) 2024-PRESENT Neko Ayaka; the full notice is in each file's header.
