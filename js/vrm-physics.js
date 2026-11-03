@@ -25,6 +25,10 @@ export const PRESETS = {
 // to that cap (1), and touch impulses skip the body entirely.
 const BODY = /bust|breast|chest|belly|butt|thigh/i;
 const BODY_MIN = { stiffness: 1, drag: 0.35 };
+// Every other joint keeps at least this drag after presets and sliders:
+// pixiv's skirt drag (0.05) under Bouncy (x0.6) would be 0.03, which
+// swings eight times over two seconds after a hop: jelly.
+export const DRAG_FLOOR = 0.12;
 const _v = new T.Vector3();
 const _q = new T.Quaternion();
 const _p = new T.Vector3();
@@ -83,7 +87,7 @@ export function createSprings(vrm, opts = {}) {
         s.dragForce = drag + (1 - drag) * (1 - bounce);
       } else {
         s.stiffness = base.stiffness * st.stiffness;
-        s.dragForce = clamp(base.dragForce * st.drag, 0, 1);
+        s.dragForce = clamp(Math.max(DRAG_FLOOR, base.dragForce * st.drag), 0, 1);
       }
       g.copy(base.gravityDir).multiplyScalar(base.gravityPower * (body ? 1 : st.gravity));
       if (!body) g.y -= st.heft;
@@ -157,6 +161,7 @@ export function createSprings(vrm, opts = {}) {
     if (st.reduced && !wasReduced && mgr) recover();
     settle(gust(st.t));
   }
+  settle(0);
 
   return {
     step, set, reset: () => mgr && recover(),
