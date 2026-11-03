@@ -22,16 +22,65 @@ export const PRESETS = {
 // least BODY_MIN.stiffness, drag at least BODY_MIN.drag, whatever the file
 // authored) and presets never loosen them: hair, skirts, sleeves and
 // accessories carry the jiggle. Bounce scales body motion from still (0)
-// to that cap (1), and touch impulses skip the body entirely.
+// to that cap (1), and touch impulses and variation skip the body entirely.
 const BODY = /bust|breast|chest|belly|butt|thigh/i;
 const BODY_MIN = { stiffness: 1, drag: 0.35 };
-// Every other joint keeps at least this drag after presets and sliders:
-// pixiv's skirt drag (0.05) under Bouncy (x0.6) would be 0.03, which
-// swings eight times over two seconds after a hop: jelly.
+// Every other joint keeps at least this drag after presets, sliders and
+// variation: pixiv's skirt drag (0.05) under Bouncy (x0.6) would be 0.03,
+// which swings eight times over two seconds after a hop: jelly.
 export const DRAG_FLOOR = 0.12;
 const _v = new T.Vector3();
 const _q = new T.Quaternion();
 const _p = new T.Vector3();
+// Each joint's authored values, kept from the first time any controller
+// sees it: a controller rebuilt after an accessory change must start from
+// the file's values, not from the floored and varied ones it inherits.
+const AUTHORED = new WeakMap();
+function authored(j) {
+  if (!AUTHORED.has(j)) {
+    const s = j.settings;
+    AUTHORED.set(j, { stiffness: s.stiffness, gravityPower: s.gravityPower, dragForce: s.dragForce, gravityDir: s.gravityDir.clone() });
+  }
+  return AUTHORED.get(j);
+}
+
+/** A stable number in [-1, 1) from a string (FNV-1a, then a final mix). */
+function unit(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 0x01000193);
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+  return (h >>> 0) / 2 ** 31 - 1;
+}
+
+/**
+ * Per-chain variation. A chain is a root joint and the joints hanging from
+ * it. Each chain gets its own stiffness and drag factors from its root
+ * bone's name, so strands differ from each other but are the same on every
+ * load, refresh and preset; nothing here is random per frame. `along` runs
+ * 0 at the root to 1 at the tip of chains of three joints or more, unless
+ * the file already graded their stiffness.
+ */
+function chainUp(records) {
+  const byBone = new Map(records.map((x) => [x.j.bone, x]));
+  const chains = new Map();
+  for (const x of records) {
+    let top = x.j.bone, depth = 0;
+    while (top.parent && byBone.has(top.parent)) { top = top.parent; depth++; }
+    x.depth = depth;
+    if (!chains.has(top)) chains.set(top, []);
+    chains.get(top).push(x);
+  }
+  for (const [top, chain] of chains) {
+    const key = top.name || top.position.toArray().map((n) => n.toFixed(3)).join(',');
+    const len = Math.max(...chain.map((x) => x.depth)) + 1;
+    const even = chain.every((x) => Math.abs(x.base.stiffness - chain[0].base.stiffness) < 1e-6);
+    for (const x of chain) {
+      x.vk = unit(`${key}|stiffness`);
+      x.vd = unit(`${key}|drag`);
+      x.along = len >= 3 && even ? x.depth / (len - 1) : null;
+    }
+  }
+}
 
 /**
  * Spring control for one VRM. With opts.root (the body rig's root), every
@@ -40,6 +89,11 @@ const _p = new T.Vector3();
  * (0 none, 1 all of it); spins are always felt in full. The root's motion
  * is also spread across the fixed substeps, so a 30 Hz frame does not kick
  * twice as hard as a 60 Hz one.
+ *
+ * State, through set(): stiffness, gravity, drag, heft (presets); wind;
+ * bounce (body springs, 0 still to 1 capped); inertia; vary (each chain's
+ * stiffness and drag spread, 0 to 0.15); taper (root over tip stiffness on
+ * long chains, 1 for even); reduced.
  */
 export function createSprings(vrm, opts = {}) {
   const mgr = vrm.springBoneManager || null;
@@ -55,8 +109,9 @@ export function createSprings(vrm, opts = {}) {
     joints = mgr ? [...mgr.joints].map((j) => known.get(j) || {
       j,
       body: BODY.test(j.bone.name),
-      base: { stiffness: j.settings.stiffness, gravityPower: j.settings.gravityPower, dragForce: j.settings.dragForce, gravityDir: j.settings.gravityDir.clone() },
+      base: authored(j),
     }) : [];
+    chainUp(joints);
     if (proxy) {
       // Re-express only the joints that change space; the rest keep swinging.
       proxy.updateMatrixWorld(true);
@@ -72,22 +127,26 @@ export function createSprings(vrm, opts = {}) {
   scan();
   const st = {
     enabled: true, stiffness: 1, gravity: 1, drag: 1, heft: 0, bounce: 1, inertia: 0.4, reduced: false,
+    vary: 0.12, taper: 1.5,
     wind: 0, windDir: new T.Vector3(1, 0, 0.35).normalize(), t: 0, acc: 0, resets: 0,
   };
   const g = new T.Vector3();
 
   function settle(windNow) {
     const bounce = clamp(st.bounce, 0, 1);
-    for (const { j, body, base } of joints) {
-      const s = j.settings;
+    const vary = clamp(st.vary, 0, 0.15), taper = Math.max(1, st.taper);
+    for (const x of joints) {
+      const { j, body, base } = x, s = j.settings;
       if (body) {
         const drag = clamp(Math.max(base.dragForce, BODY_MIN.drag) * Math.max(1, st.drag), 0, 1);
         // Stiffness rises steeply as bounce falls, so the swing scales about linearly.
         s.stiffness = Math.max(base.stiffness, BODY_MIN.stiffness) * Math.max(1, st.stiffness) * (1 + 6 * (1 / Math.max(bounce, 0.02) - 1));
         s.dragForce = drag + (1 - drag) * (1 - bounce);
       } else {
-        s.stiffness = base.stiffness * st.stiffness;
-        s.dragForce = clamp(Math.max(DRAG_FLOOR, base.dragForce * st.drag), 0, 1);
+        // Root over tip is `taper`, keeping the chain's mean stiffness.
+        const grade = x.along == null ? 1 : 2 * (taper - (taper - 1) * x.along) / (1 + taper);
+        s.stiffness = base.stiffness * st.stiffness * (1 + vary * x.vk) * grade;
+        s.dragForce = clamp(Math.max(DRAG_FLOOR, base.dragForce * st.drag * (1 + vary * x.vd)), 0, 1);
       }
       g.copy(base.gravityDir).multiplyScalar(base.gravityPower * (body ? 1 : st.gravity));
       if (!body) g.y -= st.heft;
