@@ -1,0 +1,21 @@
+Notice: the files in this folder
+
+The files here are not covered by the MIT licence of the Bijou repository
+(LICENSE at its root). Each keeps the licence its creator gave it.
+
+bijou.vrm
+  Derived from pixiv's "Victoria Rubin" (beta Ver AvatarSample_4), CC0 1.0 as
+  its embedded VRM metadata declares:
+  https://creativecommons.org/publicdomain/zero/1.0/
+  pixiv's Japanese article adds that using the VRM requires agreeing to the
+  VRoid Hub Terms.
+
+Each file's source, author, licence text as read, the date it was read,
+SHA-256 hashes and every change made are recorded in assets/ATTRIBUTION.md in
+the source repository. The site does not publish Markdown files, so read it
+there before reusing a file:
+https://github.com/energon-a-secas/bijou-site/blob/main/assets/ATTRIBUTION.md
+
+Licence-restricted files (pixiv's VRMA pack, Mixamo clips, anything whose
+terms forbid redistribution) are never committed here, or anywhere under dev/
+or assets/: they are tested from a local copy.

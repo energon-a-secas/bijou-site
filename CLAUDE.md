@@ -31,6 +31,11 @@ change only the hidden SVG on that path; only the saved Bounce reaches her, as
 the body springs' Bounce inside the cap. Which models and motion Bijou may
 ship, and why: `docs/MODELS-AND-MOTION.md`.
 
+`vrm-retarget.js` (bone maps in `vrm-bone-maps.js`) retargets a GLB/FBX humanoid
+clip onto any VRM's normalized humanoid and `vrma-writer.js` saves it as `.vrma`;
+`dev/retarget.html` is the page for a file from disk, and
+`node --test dev/retarget.test.mjs` checks both on synthetic rigs and `bijou.vrm`.
+
 **Behaviour on the runtime.** `vrm-motion.js` applies its layers in per-bone
 priority, lowest first: default, idle, tracking, one-shot, expression,
 physics. A layer that poses a bone slerps it toward its own pose by a fading
@@ -173,7 +178,7 @@ One Persist Kit store, `bijou-site:save` (version 1): name, body, head, outfit, 
 - **Rebind only in rest pose.** `avatar-morph.js` restores the bone hierarchy before calculating bind inverses. Every shape change updates body, garments and collider dimensions together. Keep `bjRest` unchanged for garment masks.
 - **Shape mode owns its gestures.** Play interactions return early while editing. Gesture cancellation restores the preceding body; slider and pointer edits use the same validated values.
 - **Fit after shaping.** Garment allowance is applied to the shaped body, never passed through body-region classification. Keep anatomical and garment ease controls separate. Fitted and generated garments both need a meaningful result for every exposed tailoring control.
-- **VRMA clips are evaluated from their tracks, not by an `AnimationMixer`.** three.js's `PropertyMixer` writes a property only when its value changed since the last frame, and `vrm-motion.js` resets every bone each frame, so a mixer-driven clip holding a pose (or a play-once clip at its end) fell back to rest; its fades also blended against a pose frozen at `play()`. `dev/behaviour-check.cjs` checks a still clip holds every frame.
+- **VRMA clips are evaluated from their tracks, not by an `AnimationMixer`.** three.js's `PropertyMixer` writes a property only when its value changed since the last frame, and `vrm-motion.js` resets every bone each frame, so a mixer-driven clip holding a pose (or a play-once clip at its end) fell back to rest; its fades also blended against a pose frozen at `play()`. `dev/behaviour-check.cjs` checks a still clip holds every frame. `node --test dev/vrm-motion.test.mjs` checks held keys, pauses, loop restarts and fades on every bone, every frame.
 - **Source springs are retired in the live renderer** (`avatar*.js`; the `vrm-*` runtime keeps a model's own springs). Retained bangs follow the head; generated hair guides own motion. Re-enabling the source spring manager causes fringe recoil on outfit rebuilds and breaks reduced-motion behavior.
 - **Spring settings belong to the controller.** `createSprings` remembers each joint's authored values once (for every later controller too) and rewrites `settings` on each `set()`, so change the controller's state, never a joint's settings. A joint given its own cone (`setCone`, as the ribbons are), or held free by an owner (`setCone(j, null, owner)`), keeps it; pattern cones are the controller's. A cone holds each link to the one above it and colliders win over it, so it stops kinks, not every curl.
 - The drawing notes below apply to the **SVG fallback**.

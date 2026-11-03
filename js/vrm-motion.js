@@ -184,8 +184,9 @@ export function createMotion(vrm, opts = {}) {
   }
 
   // ── Clips ─────────────────────────────────────────────────
+  /** A VRMA animation (built for this model here), or a clip already on its normalized bones (vrm-retarget.js). */
   function addClip(name, vrmAnimation) {
-    const clip = T.createVRMAnimationClip(vrmAnimation, vrm);
+    const clip = vrmAnimation instanceof T.AnimationClip ? vrmAnimation : T.createVRMAnimationClip(vrmAnimation, vrm);
     clip.name = name;
     clips.set(name, clip);
     entries.set(name, indexClip(clip, boneOfNode));
