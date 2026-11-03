@@ -43,7 +43,12 @@ export function createBody(vrm, opts = {}) {
   squash.position.y = -hipsY;
   root.add(lean); lean.add(squash); squash.add(vrm.scene);
 
-  const tune = (k) => ({ ...BODY_SPRINGS[k], ...opts.springs?.[k] });
+  // opts.springs overrides a channel's hz or ratio; a value that is not a finite number is ignored.
+  const tune = (k) => {
+    const out = { ...BODY_SPRINGS[k] };
+    for (const f of ['hz', 'ratio']) if (Number.isFinite(opts.springs?.[k]?.[f])) out[f] = opts.springs[k][f];
+    return out;
+  };
   const sp = { squash: spring(tune('squash'), 1), lean: spring(tune('lean')), tilt: spring(tune('tilt')), spin: spring(tune('spin')) };
   let spinning = false;
 
@@ -76,7 +81,7 @@ export function createBody(vrm, opts = {}) {
     st.vel.clampLength(0, 6);
   }
   function hop(power = 2.4) {
-    if (st.held || st.airborne) return false;
+    if (st.held || st.airborne || !Number.isFinite(power)) return false;
     const k = st.reduced ? 0.5 : 1;
     st.vel.y = power * k;
     kick(sp.squash, SQUASH.hop * k);
@@ -85,6 +90,7 @@ export function createBody(vrm, opts = {}) {
   }
   /** A twirl of `turns` whole turns (negative turns the other way), easing to a stop facing front. */
   function spin(turns = 1) {
+    if (!Number.isFinite(turns)) return;
     const s = sp.spin;
     s.goal += turns * TURN;
     // From rest this follows exactly the old exponential ease into a whole turn.
@@ -92,6 +98,7 @@ export function createBody(vrm, opts = {}) {
     spinning = true;
   }
   function poke(strength = 1) {
+    if (!Number.isFinite(strength)) return;
     kick(sp.squash, -SQUASH.poke * strength);
     sp.tilt.v += (Math.random() - 0.5) * 3 * strength;
   }
@@ -133,9 +140,9 @@ export function createBody(vrm, opts = {}) {
     if (spinning) advance(sp.spin, h);
   }
 
-  // A hitch longer than 0.1 s pauses her rather than teleporting her.
+  // A hitch longer than 0.1 s pauses her rather than teleporting her; a frame time that is not a number moves nothing.
   function update(dt) {
-    dt = clamp(dt, 0, 0.1);
+    dt = dt > 0 ? Math.min(dt, 0.1) : 0;
     const p = root.position;
     st.prev.copy(p);
     if (st.held) {

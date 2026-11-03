@@ -41,6 +41,13 @@ export const stiffnessOf = (hz) => (2 * Math.PI * hz) ** 2;
 /** damping_ratio_to_damping: the damping constant for `ratio` at `stiffness`. */
 export const dampingOf = (ratio, stiffness) => ratio * 2 * Math.sqrt(stiffness);
 
+// A frequency of zero or less, or a negative damping ratio, has no stable
+// solution (NaN, or a swing that grows for good), so a spring set that way
+// runs at 0.01 Hz, or undamped. Huge values lose precision, so frequency
+// stops at 1000 Hz and the ratio at 100; NaN reads as the low end.
+const hzOf = (sp) => (sp.hz > 0.01 ? Math.min(1000, sp.hz) : 0.01);
+const ratioOf = (sp) => (sp.ratio > 0 ? Math.min(100, sp.ratio) : 0);
+
 /** A spring channel at rest at x: { hz, ratio, x, v, goal }. Change any field at any time. */
 export function spring({ hz, ratio }, x = 0) {
   return { hz, ratio, x, v: 0, goal: x };
@@ -49,14 +56,14 @@ export function spring({ hz, ratio }, x = 0) {
 /** Move a spring dt seconds toward its goal, exactly. */
 export function advance(sp, dt) {
   if (!(dt > 0)) return sp;
-  const s = stiffnessOf(sp.hz), d = dampingOf(sp.ratio, s), y = d / 2;
+  const ratio = ratioOf(sp), s = stiffnessOf(hzOf(sp)), d = dampingOf(ratio, s), y = d / 2;
   const c = sp.goal, x = sp.x, v = sp.v, j0 = x - c;
-  if (Math.abs(sp.ratio - 1) < 1e-6) {
+  if (Math.abs(ratio - 1) < 1e-6) {
     // Critically damped.
     const j1 = v + j0 * y, e = Math.exp(-y * dt);
     sp.x = j0 * e + dt * j1 * e + c;
     sp.v = -y * j0 * e - y * dt * j1 * e + j1 * e;
-  } else if (sp.ratio < 1) {
+  } else if (ratio < 1) {
     // Under damped: x(t) = c + e^(-yt) (A cos wt + B sin wt).
     const w = Math.sqrt(s - y * y), b = (v + y * j0) / w;
     const e = Math.exp(-y * dt), cs = Math.cos(w * dt), sn = Math.sin(w * dt);
@@ -74,8 +81,8 @@ export function advance(sp, dt) {
 }
 
 /** The furthest a spring at rest travels from its goal after a kick of 1 unit per second. */
-export function reachOf({ hz, ratio }) {
-  const w0 = 2 * Math.PI * hz;
+export function reachOf(sp) {
+  const ratio = ratioOf(sp), w0 = 2 * Math.PI * hzOf(sp);
   if (Math.abs(ratio - 1) < 1e-6) return 1 / (w0 * Math.E);
   if (ratio < 1) {
     const wd = w0 * Math.sqrt(1 - ratio * ratio);
