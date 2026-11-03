@@ -7,10 +7,22 @@ import { loadVRM, loadVRMA, disposeVRM } from '../js/vrm-runtime.js';
 import { createMotion, GESTURE_NAMES } from '../js/vrm-motion.js';
 import { createSprings, createBody, stepVRM, PRESETS } from '../js/vrm-physics.js';
 import { attachRibbons } from '../js/vrm-accessory.js';
+import { createPressGestures } from '../js/vrm-touch.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** ?seed=N makes idle picks, saccades and blinks repeatable, for checks. */
+function seeded(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), a | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 // ── Scene ────────────────────────────────────────────────────
 const canvas = $('view');
@@ -124,21 +136,26 @@ async function load(src, label = 'model') {
   try {
     const { vrm, info } = await loadVRM(src);
     if (cur) { showHelpers(false); scene.remove(cur.body.root); disposeVRM(cur.vrm); }
-    const motion = createMotion(vrm, { reduced, sleepAfter: +(params.get('sleep') || 60) });
+    const seed = params.get('seed');
+    const motion = createMotion(vrm, { reduced, sleepAfter: +(params.get('sleep') || 60), random: seed ? seeded(+seed) : undefined });
     const body = createBody(vrm, {
+      // Landing is an event-only behaviour in the idle scheduler; a soft one just ends the flight.
       onLand: (impact) => {
-        motion.mood({ happy: 0.7 }, 1.4);
+        if (cur) cur.falling = false;
+        if (impact > 1.2) motion.fire('land');
+        else { motion.endEvent('toss'); motion.endEvent('fall'); }
         if (impact > 3) motion.gesture('nod');
       },
     });
     const springs = createSprings(vrm, { root: body.root });
     body.state.reduced = reduced;
     scene.add(body.root);
-    cur = { vrm, springs, motion, body, info, label, ribbons: null };
+    cur = { vrm, springs, motion, body, info, label, ribbons: null, falling: false };
     setRibbons($('ribbons').checked);
     springs.set({ ...PRESETS[preset], ...physicsValues() });
     applyClay($('clay').checked);
     motion.state.idle = $('idle').checked ? 1 : 0;
+    motion.follow = $('follow').checked;
     // Let springs settle in the rest pose before the first frame is shown.
     for (let i = 0; i < 120; i++) frame(1 / 60);
     renderInfo(info);
@@ -156,6 +173,9 @@ const follow = new T.Vector3();
 function frame(dt) {
   if (!cur) return;
   cur.body.update(dt);
+  // Let go of in the air and coming down fast: a fall, until she lands.
+  const b = cur.body.state;
+  if (b.airborne && !b.held && b.vel.y < -3 && !cur.falling) { cur.falling = true; cur.motion.fire('fall'); }
   cur.motion.update(dt);
   stepVRM(cur.vrm, dt, cur.springs);
   // The camera drifts after her, so a toss never carries her out of view.
@@ -179,15 +199,29 @@ if (!params.get('still')) renderer.setAnimationLoop(() => {
   frames++; fpsT += dt;
   if (fpsT > 0.5) {
     $('stats').textContent = `${Math.round(frames / fpsT)} fps · ${renderer.info.render.calls} draw calls · ${cur ? cur.springs.count : 0} spring joints`;
+    showIdle();
     frames = 0; fpsT = 0;
   }
 });
 
-// ── Pointer: carry, toss, pat, poke, look ────────────────────
+/** What the scheduler is doing, and how many pats she has had. */
+function showIdle() {
+  if (!cur) return;
+  const now = cur.motion.idle.current, st = cur.motion.state;
+  const doing = st.sleep > 0.5 ? 'dozing' : now ? `${now.name} (${now.phase})` : 'resting';
+  $('idle-now').textContent = `Now: ${doing} · ${st.pats} pat${st.pats === 1 ? '' : 's'}`;
+}
+
+// ── Pointer: carry, toss, pat, tap, look ─────────────────────
+// vrm-touch.js decides what a press is. A stroke over the head pats her
+// (AIRI's recogniser: the stroke must turn back, and every 70 px of it is one
+// more pat); a quick press is a tap; a press below the neck, or a
+// press-and-hold on the head, picks her up.
 const ray = new T.Raycaster();
 const ndc = new T.Vector2();
 const plane = new T.Plane();
 const hit = new T.Vector3();
+const touches = createPressGestures();
 let press = null;
 
 function pointerRay(e) {
@@ -204,6 +238,23 @@ function neckY() {
   return n ? n.getWorldPosition(new T.Vector3()).y : 1.3;
 }
 
+/** Her head as a sphere around its bone, so a stroke between strands of hair is still on her head. */
+function headSphere() {
+  const h = cur.vrm.humanoid.getNormalizedBoneNode('head');
+  const c = h ? h.getWorldPosition(new T.Vector3()) : new T.Vector3(0, 1.4, 0);
+  const s = Math.min(1.5, Math.max(0.65, cur.info.headHeight / 1.45));
+  c.y += 0.09 * s;
+  return { c, r: 0.15 * s };
+}
+
+/** A sample for the recogniser: over her head or not, and where across it (viewer's left -1 to right 1). */
+function sampleOf(e, region = null) {
+  const { c, r } = headSphere();
+  const across = ray.ray.closestPointToPoint(c, new T.Vector3()).sub(c).dot(new T.Vector3().setFromMatrixColumn(camera.matrixWorld, 0));
+  const over = ray.ray.distanceToPoint(c) < r ? 'head' : 'body';
+  return { x: e.clientX, y: e.clientY, ms: e.timeStamp, hit: { region: region || over, side: Math.max(-1, Math.min(1, across / r)) } };
+}
+
 canvas.addEventListener('pointerdown', (e) => {
   if (!cur || e.button !== 0) return;
   pointerRay(e);
@@ -214,7 +265,8 @@ canvas.addEventListener('pointerdown', (e) => {
   canvas.setPointerCapture(e.pointerId);
   const p = hits[0].point.clone();
   onPlane(p);
-  press = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), head: p.y > neckY(), point: p, carrying: false, petting: false };
+  press = { id: e.pointerId, point: p };
+  touches.down(sampleOf(e, p.y > neckY() ? 'head' : 'body'));
 });
 
 // Brushing: a moving pointer ruffles the hair and ribbons it passes through.
@@ -246,21 +298,23 @@ canvas.addEventListener('pointermove', (e) => {
     return;
   }
   if (e.pointerId !== press.id) return;
-  const moved = Math.hypot(e.clientX - press.x, e.clientY - press.y) > 6;
-  // On the head, a stroke is a pet; only a press-and-hold there picks her up.
-  if (!press.carrying && moved && press.head && performance.now() - press.t < 350) press.petting = true;
-  if (press.petting) {
-    const dx = e.movementX || 0;
-    cur.motion.pet(Math.sign(dx) * Math.min(1, Math.abs(dx) / 8));
-    if (ray.ray.intersectPlane(plane, hit)) cur.springs.touch({ point: hit, vel: new T.Vector3(dx * 0.05, -0.4, 0), radius: 0.14, gain: 1.2 });
-    return;
-  }
-  if (!press.carrying && moved) {
-    press.carrying = true;
+  const ev = touches.move(sampleOf(e));
+  if (ev?.type === 'pickup') {
     cur.body.hold(press.point);
     cur.motion.setHeld(true);
   }
-  if (press.carrying && ray.ray.intersectPlane(plane, hit)) cur.body.move(hit);
+  if (touches.mode === 'carry') {
+    if (ray.ray.intersectPlane(plane, hit)) cur.body.move(hit);
+    return;
+  }
+  if (touches.mode !== 'stroke' || !ray.ray.intersectPlane(plane, hit)) return;
+  // A stroking hand ruffles the hair it passes; every pat presses down on it.
+  const dx = e.movementX || 0;
+  cur.springs.touch({ point: hit, vel: new T.Vector3(dx * 0.05, -0.4, 0), radius: 0.14, gain: 1.2 });
+  if (ev?.type === 'pat') {
+    cur.motion.touch({ region: 'head', gesture: 'pat', side: ev.side });
+    cur.springs.touch({ point: hit, vel: new T.Vector3(0, -1.2, 0), radius: 0.16 });
+  }
 });
 
 function endPress(e) {
@@ -269,9 +323,18 @@ function endPress(e) {
   press = null;
   controls.enabled = true;
   if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
-  if (p.carrying) { cur.body.release(); cur.motion.setHeld(false); return; }
-  if (p.petting || performance.now() - p.t > 600) return;
-  if (p.head) {
+  pointerRay(e);
+  const ev = e.type === 'pointercancel' ? touches.cancel() : touches.up(sampleOf(e));
+  if (ev?.type === 'drop') {
+    cur.body.release();
+    cur.motion.setHeld(false);
+    // Let go of while moving fast: thrown.
+    if (cur.body.state.vel.length() > 2) cur.motion.fire('toss');
+    return;
+  }
+  if (ev?.type !== 'tap') return;
+  cur.motion.touch({ region: ev.region, gesture: 'tap', side: ev.side });
+  if (ev.region === 'head') {
     cur.motion.mood({ happy: 1 }, 1.8);
     cur.motion.gesture('tilt');
     cur.body.poke(0.5);
@@ -318,6 +381,12 @@ for (const id of SLIDERS) {
 $('helpers').addEventListener('change', () => showHelpers($('helpers').checked));
 $('springs').addEventListener('change', () => { cur?.springs.set(physicsValues()); cur?.springs.reset(); });
 $('idle').addEventListener('change', () => { if (cur) cur.motion.state.idle = $('idle').checked ? 1 : 0; });
+$('clip-idles').addEventListener('change', () => { for (const n of cur ? cur.motion.clips : []) clipIdle(n); });
+/** With the box ticked, dropped clips join the idle rotation (at idle priority, under the gaze). */
+function clipIdle(name) {
+  if ($('clip-idles').checked) cur.motion.addIdle(name);
+  else cur.motion.removeIdle(name);
+}
 $('follow').addEventListener('change', () => { if (cur) cur.motion.follow = $('follow').checked; });
 $('blink').addEventListener('change', () => { if (cur) cur.motion.blink = $('blink').checked; });
 $('clay').addEventListener('change', () => applyClay($('clay').checked));
@@ -332,6 +401,7 @@ document.querySelector('.panel').addEventListener('click', (e) => {
     if (act === 'spin') { cur.body.spin(1); cur.motion.gesture('spin'); }
     if (act === 'toss') toss(1.6, 3.2);
     if (act === 'talk') cur.motion.talk(2.2);
+    if (act === 'next-idle') { cur.motion.idle.next(); showIdle(); }
   }
   if (view) frameView(view);
 });
@@ -342,6 +412,7 @@ function toss(vx, vy) {
   st.airborne = true;
   st.vel.set(vx, vy, 0);
   cur.motion.setHeld(true);
+  cur.motion.fire('toss');
   setTimeout(() => cur?.motion.setHeld(false), 700);
 }
 
@@ -360,6 +431,7 @@ async function openFile(file) {
     const anim = await loadVRMA(file);
     const name = file.name.replace(/\.vrma$/i, '');
     cur.motion.addClip(name, anim);
+    clipIdle(name);
     renderClips();
     cur.motion.play(name);
   } else {
@@ -377,6 +449,12 @@ addEventListener('drop', async (e) => {
 
 syncOutputs();
 for (const b of $('presets').children) b.setAttribute('aria-pressed', String(b.dataset.id === preset));
+/** A world point in client pixels. */
+function toClient(p) {
+  camera.updateMatrixWorld();
+  const r = canvas.getBoundingClientRect(), v = p.clone().project(camera);
+  return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
+}
 window.lab = {
   load, frame, toss,
   ribbons(on) { $('ribbons').checked = on; setRibbons(on); },
@@ -384,6 +462,18 @@ window.lab = {
   step(seconds, dt = 1 / 60) { for (let t = 0; t < seconds; t += dt) frame(dt); renderer.render(scene, camera); },
   view: frameView,
   render() { renderer.render(scene, camera); },
+  /** Her head on screen, for scripted strokes: { x, y, r } in client pixels. */
+  headScreen() {
+    const { c, r } = headSphere();
+    const a = toClient(c), b = toClient(c.clone().add(new T.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).multiplyScalar(r)));
+    return { x: a.x, y: a.y, r: Math.hypot(b.x - a.x, b.y - a.y) };
+  },
+  /** A humanoid bone on screen, in client pixels. */
+  boneScreen(name) {
+    const n = cur.vrm.humanoid.getNormalizedBoneNode(name);
+    return n ? toClient(n.getWorldPosition(new T.Vector3())) : null;
+  },
+  get pressMode() { return touches.mode; },
 };
 await load(params.get('model') || '../assets/models/bijou.vrm', 'Bijou');
 if (params.get('vrma')) {

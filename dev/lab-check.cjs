@@ -20,10 +20,15 @@ fs.mkdirSync(out, { recursive: true });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.goto(`${BASE}/dev/lab.html?still=1&v=${Date.now()}${model}`);
+  // seed=1: idle picks, saccades and blinks repeat run to run, so they cannot move the physics numbers.
+  await page.goto(`${BASE}/dev/lab.html?still=1&seed=1&v=${Date.now()}${model}`);
   await page.waitForFunction(() => window.lab && window.lab.cur, null, { timeout: 60000 });
   const info = await page.evaluate(() => window.lab.cur.info);
   console.log('model:', info.name, '|', info.version, '|', info.license.summary, '| springs', info.springs, '| expressions', info.expressions.length);
+  // The physics numbers are measured without idle behaviours, so a weight
+  // shift or a glance cannot pass for a swing; the behaviour section below
+  // turns them back on (dev/behaviour-check.cjs covers the idles).
+  await page.evaluate(() => { window.lab.cur.motion.state.idle = 0; });
 
   const shot = async (name) => {
     const data = await page.evaluate(() => { window.lab.render(); return document.getElementById('view').toDataURL('image/png'); });
@@ -186,6 +191,7 @@ fs.mkdirSync(out, { recursive: true });
 
   const behaviour = await page.evaluate(() => {
     const lab = window.lab, m = lab.cur.motion, st = m.state;
+    st.idle = 1;
     // Saccades: the eye target leaves the point of attention while it holds still.
     const look = lab.cur.vrm.humanoid.getNormalizedBoneNode('head').getWorldPosition(st.look.clone()).add(st.look.clone().set(0, 0, 0.8));
     m.lookAt(look);
