@@ -21,6 +21,10 @@ the model's own springs (fixed substeps, Carry swing proxy center, body cap and
 Bounce, touch) plus the carry/toss/twirl rig; `vrm-accessory.js` adds physics
 ribbons. `dev/lab.html` (the Doll Lab) loads any dropped `.vrm`/`.vrma`. Which
 models and motion Bijou may ship, and why: `docs/MODELS-AND-MOTION.md`.
+`vrm-retarget.js` (bone maps in `vrm-bone-maps.js`) retargets a GLB/FBX humanoid
+clip onto any VRM's normalized humanoid and `vrma-writer.js` saves it as `.vrma`;
+`dev/retarget.html` is the page for a file from disk, and
+`node --test dev/retarget.test.mjs` checks both on synthetic rigs and `bijou.vrm`.
 
 The live renderer is `avatar.js`. The `avatar-*` modules own model preparation,
 arm IK/collisions, materials, fitted and generated garments, morphs, hair and face.
