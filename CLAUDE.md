@@ -14,13 +14,20 @@ Then open http://localhost:8897. It must be served over HTTP: the app is ES modu
 
 ## Architecture
 
-**Complete-model runtime (not yet in the companion).** `vrm-runtime.js` loads
+**Complete-model runtime (in the companion behind a flag).** `vrm-runtime.js` loads
 any VRM 0.x/1.0 and reads its licence metadata; `vrm-motion.js` layers clips,
 idle, gestures, gaze with saccades, petting and dozing; `vrm-physics.js` drives
 the model's own springs (fixed substeps, Carry swing proxy center, body cap and
 Bounce, touch) plus the carry/toss/twirl rig; `vrm-accessory.js` adds physics
-ribbons. `dev/lab.html` (the Doll Lab) loads any dropped `.vrm`/`.vrma`. Which
-models and motion Bijou may ship, and why: `docs/MODELS-AND-MOTION.md`.
+ribbons. `dev/lab.html` (the Doll Lab) loads any dropped `.vrm`/`.vrma`.
+`avatar-vrm.js` drives the companion from that runtime behind the `doll`
+interface, only for `?renderer=vrm` on local hosts (`&model=` takes a
+same-origin `.vrm`). `motion.js` still owns carrying, falls and the twirl and
+places the rig; behaviour's faces and poses become runtime moods and gestures;
+it has no loop of its own, so the pop-out keeps working; the SVG doll stays the
+fallback. The bundled model is the CC0 beta stand-in, so wardrobe and body edits
+change only the hidden SVG on that path. Which models and motion Bijou may
+ship, and why: `docs/MODELS-AND-MOTION.md`.
 
 The live renderer is `avatar.js`. The `avatar-*` modules own model preparation,
 arm IK/collisions, materials, fitted and generated garments, morphs, hair and face.
@@ -121,7 +128,7 @@ The table below describes the original SVG and application modules.
 | `js/lines.js` | 66 | `LINES`, `WISHES`, `pick` |
 | `js/thumbs.js` | 65 | `itemThumb`, `miniDoll` |
 | `js/stage.js` | 62 | `BACKDROPS`, `drawBackdrop` |
-| `js/app.js` | 43 | none |
+| `js/app.js` | 48 | none |
 | `js/dialogs.js` | 26 | `openDialog`, `bindDialog` |
 | `js/utils.js` | 6 | `$` |
 
@@ -135,6 +142,7 @@ One Persist Kit store, `bijou-site:save` (version 1): name, body, head, outfit, 
 
 - Visual checks: `dev/sheet.html` renders a grid of static dolls from the real modules. `?m=poses`, `?m=items&slot=dress`, `?m=heads`, `?m=bodies`; `&c=6&h=290` sets columns and cell height; `&zoom=x,y,w,h` crops every doll to a viewBox. Check every new garment and pose there before the live page.
 - Doll Lab checks: `node dev/lab-check.cjs [outDir] [modelUrl]` with `make serve` running. Playwright resolves from the monorepo root `node_modules`; other copies may lack a browser.
+- Companion VRM checks: `node dev/companion-vrm-check.cjs [outDir]` with `make serve` running (`BIJOU_URL` for another port). It drives `?renderer=vrm` in real time, so it asks Chromium for the GPU (Metal on macOS, `GPU_ARGS` overrides): software GL draws about two frames a second, where the springs rest instead of swing.
 - Live 3D checks: `dev/model.html?look=seaglass&pose=stretch`; `window.study` exposes builds, poses, stepping and diagnostics. `&linear=1` enables source linear skinning for comparison. Run `node --test dev/avatar-math.test.mjs` after collision, morph or spring changes. Run `node dev/avatar-browser.cjs` for browser checks (Playwright and the local server are required).
 - Zero build step. Plain ES modules loaded by `js/app.js`.
 - Run `node --test dev/avatar-foundation.test.mjs` for support IK, corrective bounds, surface probes, chest controls and tailoring validation. `node dev/avatar-customization.cjs` checks the new editor controls, saved looks and floor/seat support in the browser.

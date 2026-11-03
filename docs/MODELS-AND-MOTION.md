@@ -47,10 +47,11 @@ constraint is licensing, not code:
 | Whole-body rig: carry, toss, landing bounce, squash, lean, twirl | `js/vrm-physics.js` | twirl settles facing front |
 | Runtime accessories with physics (ribbons) | `js/vrm-accessory.js` | tails swing from 0.06 to 0.25 m in a twirl |
 | Doll Lab: drop a `.vrm`/`.vrma`, sliders, moods, gestures, spring and collider overlay | `dev/lab.html` | no console errors |
+| Companion adapter (Phase 0c): `index.html?renderer=vrm` on the runtime, behind the `doll` interface, local hosts only | `js/avatar-vrm.js` | `node dev/companion-vrm-check.cjs`: pats, carries, twirl, pop-out, reduced motion, SVG fallback |
 
-Not yet done: the companion (`index.html`) still uses the earlier renderer;
-connecting the runtime is an adapter behind the `doll` interface, waiting on
-the model decision.
+Not yet done: the companion's default is still the earlier renderer. The
+adapter becomes the default with the model decision (Phase 4); until then the
+flag stays on local hosts, because the stand-in has no clothing layer.
 
 ## Model candidates
 

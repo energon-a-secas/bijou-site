@@ -129,9 +129,11 @@ below continue to apply to the current renderer until a complete model is
 chosen, after which they are judged on that model.
 
 - **P0, gate: complete model and motion (R-39..R-42).** Owner judges the CC0
-  candidates and sends the pixiv inquiry; then connect the runtime to the
-  companion through an adapter behind the `doll` interface, add approved CC0
-  clips with a retargeter and idle scheduler, then dress-up by bone name.
+  candidates and sends the pixiv inquiry. The runtime already drives the
+  companion through an adapter behind the `doll` interface (`js/avatar-vrm.js`,
+  `?renderer=vrm` on local hosts, Phase 0c, 2026-11-03); next add approved CC0
+  clips with a retargeter and idle scheduler, then dress-up by bone name, then
+  make the adapter the default once the model is chosen.
 0. **P0: Portrait realism and source quality:** R-37, R-38, the latest request.
    Review the face with textures off as well as in the intended finish, then
    inspect eyes, lips, chin and fringe at portrait distance in front/profile/¾.
