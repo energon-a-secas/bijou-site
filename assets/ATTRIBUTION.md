@@ -59,3 +59,7 @@ Bundled with esbuild 0.25.10; no runtime CDN or build step is required.
 `js/vendor/model-exporter.js` bundles the Three.js **0.180.0 GLTFExporter** (MIT,
 same `THREE-LICENSE.txt`), importing the existing renderer rather than another
 Three instance. Rebuild with `sh dev/vendor-model-exporter.sh`.
+
+# Ported code
+
+- `js/vrm-touch.js` (tap and pat recogniser, touch reaction) and `js/vrm-eyes.js` (saccade gap table) port parts of [Project AIRI](https://github.com/moeru-ai/airi) at commit ded3dd1, **MIT**, Copyright (c) 2024-PRESENT Neko Ayaka; the full notice is in each file's header.
