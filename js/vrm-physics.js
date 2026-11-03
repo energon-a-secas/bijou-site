@@ -84,6 +84,9 @@ const alike = (p, q) => p.len === q.len && near(p.b.stiffness, q.b.stiffness) &&
  */
 function chainUp(records) {
   const byBone = new Map(records.map((x) => [x.j.bone, x]));
+  // Unvaried by default: a chain rooted on a body-named bone (Chest_Tie_0 >
+  // Tie_1) is skipped below, and its later joints must not read undefined.
+  for (const x of records) { x.vk = 0; x.vd = 0; }
   const chains = new Map();
   for (const x of records) {
     let top = x.j.bone, depth = 0;
@@ -241,6 +244,8 @@ export function createSprings(vrm, opts = {}) {
   /** Advance springs by dt seconds in fixed steps. */
   function step(dt) {
     if (!mgr || !st.enabled || st.reduced) return;
+    // A NaN or negative frame time would poison the accumulator for good.
+    if (!(dt >= 0)) return;
     if (dt > 0.25) { recover(); st.acc = 0; return; }
     for (const f of frames) {
       f.p1.copy(f.o.position); f.q1.copy(f.o.quaternion); f.s1.copy(f.o.scale); f.e1.copy(f.o.rotation);
@@ -285,7 +290,7 @@ export function createSprings(vrm, opts = {}) {
       if (n) { f.p0.copy(f.p1); f.q0.copy(f.q1); f.s0.copy(f.s1); }
     }
     // A tail landing exactly on a collider centre can produce NaN: recover.
-    if (n && joints.length && !Number.isFinite(joints[0].j.bone.quaternion.x + joints[joints.length - 1].j.bone.quaternion.x)) recover();
+    if (n && joints.some(({ j }) => !Number.isFinite(j.bone.quaternion.x + j.bone.quaternion.w))) recover();
   }
 
   function set(values) {

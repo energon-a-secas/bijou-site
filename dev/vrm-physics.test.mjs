@@ -264,6 +264,34 @@ test('springs keep a drag floor, vary each chain but never the body, and limit t
   assert.ok(by(/hair/i).every((j) => Math.abs(coneOf(j) - 40) < 1e-9));
 });
 
+test('a chain rooted on a body-named bone keeps finite settings, and a NaN frame time is ignored', () => {
+  const vrm = springRig(), mgr = vrm.springBoneManager;
+  let up = vrm.scene.children[0];
+  const bones = ['Chest_Tie_0', 'Tie_1', 'Tie_2', 'Tie_3', 'Tie_4'].map((name, i) => {
+    const b = new T.Bone();
+    b.name = name;
+    b.position.set(...(i ? [0, -0.05, 0] : [0, -0.2, 0.1]));
+    up.add(b); up = b;
+    return b;
+  });
+  vrm.scene.updateMatrixWorld(true);
+  for (let i = 0; i < bones.length - 1; i++) {
+    const j = new T.VRMSpringBoneJoint(bones[i], bones[i + 1], { gravityDir: new T.Vector3(0, -1, 0), stiffness: 0.5, dragForce: 0.4 });
+    j.setInitState();
+    mgr.addJoint(j);
+  }
+  const springs = createSprings(vrm);
+  const tie = [...mgr.joints].filter((j) => /Tie/.test(j.bone.name));
+  for (const j of tie) assert.ok(Number.isFinite(j.settings.stiffness) && Number.isFinite(j.settings.dragForce), `${j.bone.name} ${j.settings.stiffness}/${j.settings.dragForce}`);
+  assert.ok(tie[0].settings.stiffness >= 1 && tie[0].settings.dragForce >= 0.35, 'the body-named root stays capped');
+  for (let i = 0; i < 60; i++) springs.step(1 / 60);
+  assert.equal(springs.state.resets, 0);
+  assert.ok([...mgr.joints].every((j) => Number.isFinite(j.bone.quaternion.x)));
+  springs.step(NaN);
+  springs.step(-1);
+  assert.ok(Number.isFinite(springs.state.acc), `accumulator ${springs.state.acc}`);
+});
+
 test('a joint with a cone of its own keeps it; opts.cones covers other names', () => {
   const vrm = springRig();
   const all = [...vrm.springBoneManager.joints];
