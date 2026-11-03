@@ -22,6 +22,19 @@ Bounce, touch) plus the carry/toss/twirl rig; `vrm-accessory.js` adds physics
 ribbons. `dev/lab.html` (the Doll Lab) loads any dropped `.vrm`/`.vrma`. Which
 models and motion Bijou may ship, and why: `docs/MODELS-AND-MOTION.md`.
 
+**Behaviour on the runtime.** `vrm-motion.js` applies its layers in per-bone
+priority, lowest first: default, idle, tracking, one-shot, expression,
+physics. A layer that poses a bone slerps it toward its own pose by a fading
+weight, so the gaze yields to gestures and clips and the held dangle wins
+over all; additive turns (breathing, drift, a pat's tilt) ride on top.
+`vrm-idle.js` is the idle scheduler (weighted picks, no immediate repeats,
+start/loop/end parts, drag/toss/fall/land hooks, a doze pool) with breathing
+that never repeats; `vrm-touch.js` ports Project AIRI's tap and pat
+recogniser and reaction (MIT notice in the file) and adds the press
+classifier (pats against pickups); `vrm-eyes.js` holds AIRI's saccade gaps
+and the blink gate for new emotions; `vrm-clips.js` evaluates VRMA tracks.
+`motion.addIdle(name)` puts a clip added with `addClip` into the rotation.
+
 The live renderer is `avatar.js`. The `avatar-*` modules own model preparation,
 arm IK/collisions, materials, fitted and generated garments, morphs, hair and face.
 `body-shape.js` supplies the shared regional field; `body-editor.js` owns gestures
@@ -135,6 +148,7 @@ One Persist Kit store, `bijou-site:save` (version 1): name, body, head, outfit, 
 
 - Visual checks: `dev/sheet.html` renders a grid of static dolls from the real modules. `?m=poses`, `?m=items&slot=dress`, `?m=heads`, `?m=bodies`; `&c=6&h=290` sets columns and cell height; `&zoom=x,y,w,h` crops every doll to a viewBox. Check every new garment and pose there before the live page.
 - Doll Lab checks: `node dev/lab-check.cjs [outDir] [modelUrl]` with `make serve` running. Playwright resolves from the monorepo root `node_modules`; other copies may lack a browser.
+- Behaviour checks: `node --test dev/behaviour.test.mjs` (recogniser on synthetic traces, scheduler, eyes, breathing, clip layers) and `node dev/behaviour-check.cjs [outDir]` (five simulated minutes alone, strokes and drags through the Lab's pointer handlers, priority, hooks) with the server running. `dev/lab.html?seed=N` makes idle picks, saccades and blinks repeatable.
 - Live 3D checks: `dev/model.html?look=seaglass&pose=stretch`; `window.study` exposes builds, poses, stepping and diagnostics. `&linear=1` enables source linear skinning for comparison. Run `node --test dev/avatar-math.test.mjs` after collision, morph or spring changes. Run `node dev/avatar-browser.cjs` for browser checks (Playwright and the local server are required).
 - Zero build step. Plain ES modules loaded by `js/app.js`.
 - Run `node --test dev/avatar-foundation.test.mjs` for support IK, corrective bounds, surface probes, chest controls and tailoring validation. `node dev/avatar-customization.cjs` checks the new editor controls, saved looks and floor/seat support in the browser.
@@ -148,6 +162,7 @@ One Persist Kit store, `bijou-site:save` (version 1): name, body, head, outfit, 
 - **Rebind only in rest pose.** `avatar-morph.js` restores the bone hierarchy before calculating bind inverses. Every shape change updates body, garments and collider dimensions together. Keep `bjRest` unchanged for garment masks.
 - **Shape mode owns its gestures.** Play interactions return early while editing. Gesture cancellation restores the preceding body; slider and pointer edits use the same validated values.
 - **Fit after shaping.** Garment allowance is applied to the shaped body, never passed through body-region classification. Keep anatomical and garment ease controls separate. Fitted and generated garments both need a meaningful result for every exposed tailoring control.
+- **VRMA clips are evaluated from their tracks, not by an `AnimationMixer`.** three.js's `PropertyMixer` writes a property only when its value changed since the last frame, and `vrm-motion.js` resets every bone each frame, so a mixer-driven clip holding a pose (or a play-once clip at its end) fell back to rest; its fades also blended against a pose frozen at `play()`. `dev/behaviour-check.cjs` checks a still clip holds every frame.
 - **Source springs are retired in the live renderer** (`avatar*.js`; the `vrm-*` runtime keeps a model's own springs). Retained bangs follow the head; generated hair guides own motion. Re-enabling the source spring manager causes fringe recoil on outfit rebuilds and breaks reduced-motion behavior.
 - The drawing notes below apply to the **SVG fallback**.
 
