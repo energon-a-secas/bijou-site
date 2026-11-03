@@ -26,7 +26,8 @@ same-origin `.vrm`). `motion.js` still owns carrying, falls and the twirl and
 places the rig; behaviour's faces and poses become runtime moods and gestures;
 it has no loop of its own, so the pop-out keeps working; the SVG doll stays the
 fallback. The bundled model is the CC0 beta stand-in, so wardrobe and body edits
-change only the hidden SVG on that path. Which models and motion Bijou may
+change only the hidden SVG on that path; only the saved Bounce reaches her, as
+the body springs' Bounce inside the cap. Which models and motion Bijou may
 ship, and why: `docs/MODELS-AND-MOTION.md`.
 
 The live renderer is `avatar.js`. The `avatar-*` modules own model preparation,
