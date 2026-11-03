@@ -7,6 +7,7 @@
 // motion by themselves, which is where most of the visible life comes from.
 
 import * as T from './vendor/avatar-engine.js';
+import { setCone } from './vrm-limits.js';
 
 export { createBody, BODY_SPRINGS } from './vrm-body.js';
 
@@ -31,6 +32,12 @@ const BODY_MIN = { stiffness: 1, drag: 0.35 };
 // variation: pixiv's skirt drag (0.05) under Bouncy (x0.6) would be 0.03,
 // which swings eight times over two seconds after a hop: jelly.
 export const DRAG_FLOOR = 0.12;
+// Hair takes a cone limit (state.hairCone, degrees from each joint's rest
+// direction), so a toss or a twirl cannot flip a lock over the head. Cones
+// the controller assigns by name carry this owner; any other cone is the
+// joint's own (a runtime accessory's, a caller's, or one the file authored).
+const HAIR = /hair|bang|fringe|ahoge|braid|ponytail|twintail/i;
+const BY_NAME = 'vrm-physics';
 const _v = new T.Vector3();
 const _q = new T.Quaternion();
 const _p = new T.Vector3();
@@ -96,12 +103,15 @@ function chainUp(records) {
  * State, through set(): stiffness, gravity, drag, heft (presets); wind;
  * bounce (body springs, 0 still to 1 capped); inertia; vary (each chain's
  * stiffness and drag spread, 0 to 0.15); taper (root over tip stiffness on
- * long chains, 1 for even); reduced.
+ * long chains, 1 for even); hairCone (degrees, 180 for free); reduced.
+ * opts.cones: [{ match: RegExp, angle: degrees }] for other bone names,
+ * checked before the hair rule. A joint with a cone of its own keeps it.
  */
 export function createSprings(vrm, opts = {}) {
   const mgr = vrm.springBoneManager || null;
   const root = opts.root || null;
   const proxy = root ? new T.Object3D() : null;
+  const patterns = opts.cones || [];
   // The rig from the root down to the model: root, lean, squash.
   const rig = [];
   if (root) {
@@ -139,7 +149,7 @@ export function createSprings(vrm, opts = {}) {
   scan();
   const st = {
     enabled: true, stiffness: 1, gravity: 1, drag: 1, heft: 0, bounce: 1, inertia: 0.4, reduced: false,
-    vary: 0.12, taper: 1.5,
+    vary: 0.12, taper: 1.5, hairCone: 50,
     wind: 0, windDir: new T.Vector3(1, 0, 0.35).normalize(), t: 0, acc: 0, resets: 0,
   };
   const g = new T.Vector3();
@@ -167,6 +177,16 @@ export function createSprings(vrm, opts = {}) {
       s.gravityPower = len;
       if (len > 1e-6) s.gravityDir.copy(g).divideScalar(len);
       else s.gravityDir.copy(base.gravityDir);
+    }
+  }
+
+  /** Cone limits by bone name: opts.cones first, then hair at state.hairCone. */
+  function limit() {
+    for (const { j, body } of joints) {
+      if (body || (j.limit && j.limit.owner !== BY_NAME)) continue;
+      const name = j.bone.name;
+      const rule = patterns.find((c) => c.match.test(name));
+      setCone(j, rule ? rule.angle : HAIR.test(name) ? st.hairCone : null, BY_NAME);
     }
   }
 
@@ -235,14 +255,16 @@ export function createSprings(vrm, opts = {}) {
     Object.assign(st, values);
     if (st.reduced && !wasReduced && mgr) recover();
     settle(gust(st.t));
+    limit();
   }
   settle(0);
+  limit();
 
   return {
     step, set, reset: () => mgr && recover(),
     preset: (name) => set(PRESETS[name] || PRESETS.natural),
     /** Pick up joints added or removed since creation, then apply the current settings. */
-    refresh() { scan(); settle(gust(st.t)); },
+    refresh() { scan(); settle(gust(st.t)); limit(); },
     /**
      * Push the springs near a ray (a pointer brushing through hair) or near
      * a point (a tap) with a world-space velocity in m/s. Body springs are
