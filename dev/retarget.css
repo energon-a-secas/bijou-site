@@ -6,4 +6,7 @@ select:disabled, button:disabled { opacity: .5; cursor: default; }
 .support p { margin-top: 8px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .support .missing { color: #ffd3a1; }
 .support strong { color: var(--text); }
+.custom { display: grid; gap: 6px; margin-top: 8px; color: var(--muted); }
+.custom[hidden] { display: none; }
+textarea { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: #2e2328; color: var(--text); font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
 @media (max-width: 820px) { .lab { grid-template-columns: minmax(0, 1fr); } }

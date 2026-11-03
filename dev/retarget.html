@@ -24,6 +24,11 @@
         <div class="support" id="support"></div>
         <label class="row">Clip <select id="clip" disabled><option>No file yet</option></select></label>
         <label class="row">Bone map <select id="map"></select></label>
+        <div class="custom" id="custom" hidden>
+          <label for="custom-map">Custom bone map (JSON)</label>
+          <textarea id="custom-map" rows="9" spellcheck="false" autocomplete="off" aria-describedby="custom-help"></textarea>
+          <p class="muted" id="custom-help">Each source bone name to a VRM humanoid bone, or "" to leave it out. It starts from the best match; edit it, then click away to retarget.</p>
+        </div>
         <dl class="info" id="report"></dl>
       </section>
 

@@ -71,6 +71,7 @@ function frameView(kind = 'front') {
 let doll = null;    // { vrm, motion, springs }
 let source = null;  // { root, clips, name }
 let clip = null;    // the retargeted clip she plays
+let mapTable = null; // the bone map it used: { sourceName: vrmBone }
 let figure = null;  // the source skeleton beside her
 let paused = false;
 const status = (msg) => { $('status').textContent = msg; };
@@ -92,9 +93,31 @@ function renderMaps() {
   const counts = source ? Object.fromEntries(Object.entries(BONE_MAPS).map(([id, { map }]) => [id, Object.keys(matchBones(source.root, map)).length])) : {};
   const best = source ? guessBoneMap(source.root) : null;
   const keep = $('map').value;
-  $('map').innerHTML = [['', `Best match${best ? `: ${best}` : ''}`], ...Object.entries(BONE_MAPS).map(([id, { label }]) => [id, `${label}${source ? `, ${counts[id]} bones` : ''}`])]
-    .map(([v, label]) => `<option value="${v}">${label}</option>`).join('');
+  const options = [['', `Best match${best ? `: ${best}` : ''}`], ...Object.entries(BONE_MAPS).map(([id, { label }]) => [id, `${label}${source ? `, ${counts[id]} bones` : ''}`]), ['custom', 'Custom (JSON below)']];
+  $('map').replaceChildren(...options.map(([v, label]) => new Option(label, v)));
   $('map').value = keep;
+  $('custom').hidden = $('map').value !== 'custom';
+}
+
+/** A custom map to start from: every source joint, named to the VRM bone the best map gives it, or "". */
+function startingMap() {
+  const named = new Map(Object.entries(matchBones(source.root, BONE_MAPS[guessBoneMap(source.root)]?.map || {})).map(([b, o]) => [o, b]));
+  const animated = new Set();
+  for (const c of source.clips) for (const t of c.tracks) { try { animated.add(T.PropertyBinding.parseTrackName(t.name).nodeName); } catch { /* not a node track */ } }
+  const out = {};
+  source.root.traverse((o) => { if (o.name && (o.isBone || named.has(o) || animated.has(o.name))) out[o.name] = named.get(o) || ''; });
+  return JSON.stringify(out, null, 1);
+}
+
+/** The custom map in the text box, checked, without the entries left blank. */
+function customMap() {
+  let json;
+  try { json = JSON.parse($('custom-map').value || '{}'); } catch (err) { throw new Error(`The custom map is not valid JSON: ${err.message}`); }
+  if (!json || typeof json !== 'object' || Array.isArray(json)) throw new Error('The custom map must be a JSON object of source bone names to VRM bones.');
+  const known = new Set(T.VRMHumanBoneList);
+  const wrong = Object.values(json).filter((v) => v !== '' && !known.has(v));
+  if (wrong.length) throw new Error(`The custom map names bones VRM does not have: ${wrong.join(', ')}.`);
+  return Object.fromEntries(Object.entries(json).filter(([, v]) => v));
 }
 
 function renderReport() {
@@ -113,6 +136,7 @@ function renderReport() {
       ['Axes', facing(r.frame)],
       ['Keys', `${r.keys}`],
     );
+    if (r.stepped) rows.push(['Stepped tracks', `${r.stepped}, kept as steps (a key 1 ms before each)`]);
   }
   $('report').innerHTML = '';
   for (const [k, v] of rows) {
@@ -191,11 +215,20 @@ async function openFile(file) {
 function useSource(root, clips, name = 'source') {
   if (!clips.length) throw new Error('the file has no animation.');
   source = { root, clips, name };
-  $('clip').innerHTML = clips.map((c, i) => `<option value="${i}">${c.name || `clip ${i + 1}`} (${c.duration.toFixed(2)} s)</option>`).join('');
+  // Names come from the file: text only, never markup.
+  $('clip').replaceChildren(...clips.map((c, i) => new Option(`${c.name || `clip ${i + 1}`} (${c.duration.toFixed(2)} s)`, i)));
   $('clip').disabled = clips.length < 2;
-  $('name').value = (clips[0].name || name).replace(/\.[^.]+$/, '');
+  $('name').value = clipName(0);
+  $('custom-map').value = startingMap();
   renderMaps();
   return retarget();
+}
+
+/** The save name for clip i: its own name, else the file's, numbered when another clip in the file shares it. */
+function clipName(i) {
+  const c = source.clips[i];
+  const base = (c.name || source.name).replace(/\.[^.]+$/, '');
+  return source.clips.some((x, j) => j !== i && (x.name || '') === (c.name || '')) ? `${base} ${i + 1}` : base;
 }
 
 // ── Retarget and preview ─────────────────────────────────────
@@ -203,10 +236,12 @@ function retarget() {
   if (!doll || !source) return null;
   const src = source.clips[+$('clip').value || 0];
   try {
+    const map = $('map').value === 'custom' ? customMap() : $('map').value || undefined;
     clip = retargetClip(src, source.root, doll.vrm, {
-      map: $('map').value || undefined, tpose: $('tpose').checked, inPlace: $('inplace').checked,
+      map, tpose: $('tpose').checked, inPlace: $('inplace').checked,
       translation: $('translation').checked, fps: +$('fps').value,
     });
+    mapTable = typeof map === 'object' ? map : BONE_MAPS[clip.userData.retarget.map].map;
   } catch (err) {
     clip = null;
     disposeFigure();
@@ -239,8 +274,7 @@ function buildFigure(src) {
   if (!$('skeleton').checked || !clip) return;
   const r = clip.userData.retarget;
   const copy = T.SkeletonUtils.clone(source.root);
-  const table = BONE_MAPS[r.map]?.map;
-  const joints = table ? matchBones(copy, table) : {};
+  const joints = mapTable ? matchBones(copy, mapTable) : {};
   const names = Object.keys(r.bones).filter((b) => joints[b]);
   const pairs = names.map((b) => {
     let p = T.VRMHumanBoneParentMap[b];
@@ -350,7 +384,8 @@ function clipDiff(a, b) {
 
 async function save() {
   if (!clip) return null;
-  const name = ($('name').value.trim() || 'animation').replace(/[^\w.-]+/g, '_');
+  // Letters and digits of any script stay, so a Japanese clip keeps its name; anything else becomes '_'.
+  const name = ($('name').value.trim() || 'animation').replace(/[^\p{L}\p{M}\p{N}_.-]+/gu, '_');
   const buffer = writeVRMA(clip, doll.vrm, { name });
   const url = URL.createObjectURL(new Blob([buffer], { type: 'model/gltf-binary' }));
   const a = Object.assign(document.createElement('a'), { href: url, download: `${name}.vrma` });
@@ -375,7 +410,9 @@ addEventListener('drop', (e) => {
   const f = e.dataTransfer.files[0];
   if (f) openFile(f).catch(() => {});
 });
-for (const id of ['clip', 'map', 'tpose', 'inplace', 'translation', 'fps']) $(id).addEventListener('change', () => { status(''); retarget(); });
+$('clip').addEventListener('change', () => { $('name').value = clipName(+$('clip').value); });
+$('map').addEventListener('change', () => { $('custom').hidden = $('map').value !== 'custom'; });
+for (const id of ['clip', 'map', 'custom-map', 'tpose', 'inplace', 'translation', 'fps']) $(id).addEventListener('change', () => { status(''); retarget(); });
 $('skeleton').addEventListener('change', () => { if (clip) buildFigure(source.clips[+$('clip').value || 0]); restart(); });
 $('layers').addEventListener('change', () => setLayers($('layers').checked));
 $('speed').addEventListener('input', () => { $('o-speed').textContent = `${(+$('speed').value).toFixed(2)}x`; });
