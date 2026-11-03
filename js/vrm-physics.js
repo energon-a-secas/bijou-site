@@ -18,29 +18,73 @@ export const PRESETS = {
   floaty: { label: 'Floaty', stiffness: 0.45, gravity: 0.4, drag: 0.42, heft: 0 },
 };
 
-// Springs on body regions keep at least their authored stiffness and drag:
-// presets loosen hair, skirts, sleeves and accessories, never the body.
+// Springs on body regions are capped at a modest motion (stiffness at
+// least BODY_MIN.stiffness, drag at least BODY_MIN.drag, whatever the file
+// authored) and presets never loosen them: hair, skirts, sleeves and
+// accessories carry the jiggle. Bounce scales body motion from still (0)
+// to that cap (1), and touch impulses skip the body entirely.
 const BODY = /bust|breast|chest|belly|butt|thigh/i;
+const BODY_MIN = { stiffness: 1, drag: 0.35 };
+const _v = new T.Vector3();
+const _q = new T.Quaternion();
+const _p = new T.Vector3();
 
-/** Spring control for one VRM. */
-export function createSprings(vrm) {
+/**
+ * Spring control for one VRM. With opts.root (the body rig's root), every
+ * joint simulates in a proxy center space that follows part of the root's
+ * travel: `inertia` is the share of carrying and tossing the springs feel
+ * (0 none, 1 all of it); spins are always felt in full. The root's motion
+ * is also spread across the fixed substeps, so a 30 Hz frame does not kick
+ * twice as hard as a 60 Hz one.
+ */
+export function createSprings(vrm, opts = {}) {
   const mgr = vrm.springBoneManager || null;
-  const joints = mgr ? [...mgr.joints].map((j) => ({
-    j,
-    body: BODY.test(j.bone.name),
-    base: { stiffness: j.settings.stiffness, gravityPower: j.settings.gravityPower, dragForce: j.settings.dragForce, gravityDir: j.settings.gravityDir.clone() },
-  })) : [];
+  const root = opts.root || null;
+  const proxy = root ? new T.Object3D() : null;
+  const prev = { p: new T.Vector3(), q: new T.Quaternion(), has: false };
+  const cur = { p: new T.Vector3(), q: new T.Quaternion(), e: new T.Euler() };
+  // Authored values are captured once per joint, so joints added later
+  // (runtime accessories) join the presets through refresh().
+  let joints = [];
+  function scan() {
+    const known = new Map(joints.map((x) => [x.j, x]));
+    joints = mgr ? [...mgr.joints].map((j) => known.get(j) || {
+      j,
+      body: BODY.test(j.bone.name),
+      base: { stiffness: j.settings.stiffness, gravityPower: j.settings.gravityPower, dragForce: j.settings.dragForce, gravityDir: j.settings.gravityDir.clone() },
+    }) : [];
+    if (proxy) {
+      // Re-express only the joints that change space; the rest keep swinging.
+      proxy.updateMatrixWorld(true);
+      for (const { j } of joints) if (j.center !== proxy) { j.center = proxy; j.reset(); }
+    }
+  }
+  function placeProxy() {
+    root.getWorldPosition(proxy.position);
+    (proxy.userData.last ||= new T.Vector3()).copy(proxy.position);
+    proxy.updateMatrixWorld(true);
+  }
+  if (proxy) placeProxy();
+  scan();
   const st = {
-    enabled: true, stiffness: 1, gravity: 1, drag: 1, heft: 0,
-    wind: 0, windDir: new T.Vector3(1, 0, 0.35).normalize(), t: 0, acc: 0,
+    enabled: true, stiffness: 1, gravity: 1, drag: 1, heft: 0, bounce: 1, inertia: 0.4, reduced: false,
+    wind: 0, windDir: new T.Vector3(1, 0, 0.35).normalize(), t: 0, acc: 0, resets: 0,
   };
   const g = new T.Vector3();
 
   function settle(windNow) {
+    const bounce = clamp(st.bounce, 0, 1);
     for (const { j, body, base } of joints) {
       const s = j.settings;
-      s.stiffness = base.stiffness * (body ? Math.max(1, st.stiffness) : st.stiffness);
-      s.dragForce = clamp(base.dragForce * (body ? Math.max(1, st.drag) : st.drag), 0, 1);
+      if (body) {
+        const drag = clamp(Math.max(base.dragForce, BODY_MIN.drag) * Math.max(1, st.drag), 0, 1);
+        // Stiffness rises steeply as bounce falls, so the swing scales about linearly.
+        s.stiffness = Math.max(base.stiffness, BODY_MIN.stiffness) * Math.max(1, st.stiffness) * (1 + 6 * (1 / Math.max(bounce, 0.02) - 1));
+        s.dragForce = drag + (1 - drag) * (1 - bounce);
+      } else {
+        s.stiffness = base.stiffness * st.stiffness;
+        s.dragForce = clamp(base.dragForce * st.drag, 0, 1);
+      }
       g.copy(base.gravityDir).multiplyScalar(base.gravityPower * (body ? 1 : st.gravity));
       if (!body) g.y -= st.heft;
       if (!body && windNow) g.addScaledVector(st.windDir, windNow);
@@ -56,30 +100,91 @@ export function createSprings(vrm) {
     return st.wind * (0.55 + 0.3 * Math.sin(t * 1.3) + 0.15 * Math.sin(t * 3.7 + 1.1));
   }
 
+  function recover() {
+    root?.updateMatrixWorld(true);
+    if (proxy) placeProxy();
+    mgr.reset();
+    prev.has = false;
+    st.resets++;
+  }
+
   /** Advance springs by dt seconds in fixed steps. */
   function step(dt) {
-    if (!mgr || !st.enabled) return;
-    if (dt > 0.25) { mgr.reset(); st.acc = 0; return; }
+    if (!mgr || !st.enabled || st.reduced) return;
+    if (dt > 0.25) { recover(); st.acc = 0; return; }
+    if (root) {
+      cur.p.copy(root.position); cur.q.copy(root.quaternion); cur.e.copy(root.rotation);
+      if (!prev.has) { prev.p.copy(cur.p); prev.q.copy(cur.q); prev.has = true; }
+    }
     st.acc += dt;
-    let n = 0;
-    while (st.acc >= STEP && n < 5) {
+    const n = Math.min(5, Math.floor(st.acc / STEP));
+    for (let i = 1; i <= n; i++) {
       st.t += STEP;
       if (st.wind) settle(gust(st.t));
+      if (root) {
+        // Place the root part of the way through this frame's motion.
+        const a = i / n;
+        root.position.lerpVectors(prev.p, cur.p, a);
+        root.quaternion.slerpQuaternions(prev.q, cur.q, a);
+        root.updateMatrixWorld(true);
+        if (proxy) {
+          root.getWorldPosition(_p);
+          _v.copy(_p).sub(proxy.userData.last || _p);
+          // A jump this large is a teleport or re-centre: the springs should not feel it.
+          const share = _v.length() > 0.45 ? 1 : 1 - clamp(st.inertia, 0, 1);
+          proxy.position.addScaledVector(_v, share);
+          proxy.updateMatrixWorld(true);
+          (proxy.userData.last ||= new T.Vector3()).copy(_p);
+        }
+      }
       mgr.update(STEP);
-      st.acc -= STEP;
-      n++;
     }
-    if (n === 5) st.acc = 0;
+    st.acc = n === 5 ? 0 : st.acc - n * STEP;
+    if (root) {
+      // Restore the exact Euler: three.js re-derives it from the quaternion,
+      // and past 90 degrees that can read (PI, PI - y, PI), which the body
+      // rig (it writes rotation.y only) would turn into a half-turn flip.
+      root.position.copy(cur.p); root.rotation.copy(cur.e);
+      if (n) { prev.p.copy(cur.p); prev.q.copy(cur.q); }
+    }
+    // A tail landing exactly on a collider centre can produce NaN: recover.
+    if (n && joints.length && !Number.isFinite(joints[0].j.bone.quaternion.x + joints[joints.length - 1].j.bone.quaternion.x)) recover();
   }
 
   function set(values) {
+    const wasReduced = st.reduced;
     Object.assign(st, values);
+    if (st.reduced && !wasReduced && mgr) recover();
     settle(gust(st.t));
   }
 
   return {
-    step, set, reset: () => mgr?.reset(),
+    step, set, reset: () => mgr && recover(),
     preset: (name) => set(PRESETS[name] || PRESETS.natural),
+    /** Pick up joints added or removed since creation, then apply the current settings. */
+    refresh() { scan(); settle(gust(st.t)); },
+    /**
+     * Push the springs near a ray (a pointer brushing through hair) or near
+     * a point (a tap) with a world-space velocity in m/s. Body springs are
+     * never pushed. Returns how many joints moved.
+     */
+    touch({ ray = null, point = null, vel, radius = 0.1, gain = 1 }) {
+      if (!mgr || !st.enabled) return 0;
+      let n = 0;
+      for (const { j, body } of joints) {
+        if (body) continue;
+        j.bone.getWorldPosition(_v);
+        const d = ray ? ray.distanceToPoint(_v) : point.distanceTo(_v);
+        if (d > radius) continue;
+        const w = (1 - d / radius) * gain * STEP;
+        _v.copy(vel).multiplyScalar(w);
+        // Tails live in the joint's center space when it has one.
+        if (j.center) _v.applyQuaternion(j.center.getWorldQuaternion(_q).invert());
+        j._prevTail.sub(_v);
+        n++;
+      }
+      return n;
+    },
     get state() { return st; },
     get count() { return joints.length; },
     get bodyCount() { return joints.filter((x) => x.body).length; },
@@ -182,7 +287,7 @@ export function createBody(vrm, opts = {}) {
     lean.rotation.z = st.lean + st.tilt * 0.12;
     // Squash and stretch about the feet, volume roughly preserved.
     st.sV += (160 * (1 - st.s) - 11 * st.sV) * dt;
-    st.s = clamp(st.s + st.sV * dt, 0.86, 1.12);
+    st.s = clamp(st.s + st.sV * dt, 0.92, 1.07);
     const w = 1 / Math.sqrt(st.s);
     squash.scale.set(w, st.s, w);
     // Spin decays smoothly to a whole turn.

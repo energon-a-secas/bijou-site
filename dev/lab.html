@@ -12,7 +12,7 @@
     <section class="view" aria-label="3D view">
       <canvas id="view"></canvas>
       <p class="status" id="status" role="status" aria-live="polite">Loading the doll…</p>
-      <p class="hint">Drag her to carry and toss her. Tap her head for a pat. Drag empty space to orbit. Drop a <code>.vrm</code> or <code>.vrma</code> file anywhere.</p>
+      <p class="hint">Drag her body to carry and toss her (or press and hold her head). Stroke her head to pet her. Sweep the pointer through her hair to ruffle it. Leave her alone and she dozes off. Drag empty space to orbit. Drop a <code>.vrm</code> or <code>.vrma</code> file anywhere.</p>
     </section>
     <aside class="panel" aria-label="Lab controls">
       <h1>Doll Lab</h1>
@@ -44,7 +44,16 @@
         <label class="slider">Gravity <output id="o-gravity"></output><input type="range" id="gravity" min="0" max="2" step="0.05" value="1"></label>
         <label class="slider">Drag <output id="o-drag"></output><input type="range" id="drag" min="0.2" max="2" step="0.05" value="1"></label>
         <label class="slider">Wind <output id="o-wind"></output><input type="range" id="wind" min="0" max="0.6" step="0.02" value="0"></label>
+        <label class="slider">Carry swing <output id="o-inertia"></output><input type="range" id="inertia" min="0" max="1" step="0.05" value="0.4"></label>
+        <label class="slider">Body bounce <output id="o-bounce"></output><input type="range" id="bounce" min="0" max="1" step="0.05" value="1"></label>
+        <p class="muted">Body bounce runs from still (0) to a modest cap (1) that is never looser than the model authored. Presets and touch never loosen the body; hair, skirts and ribbons carry the jiggle. Carry swing is how much of being carried and tossed the springs feel.</p>
         <label class="row"><input type="checkbox" id="springs" checked> Spring physics</label>
+      </section>
+
+      <section>
+        <h2>Accessories</h2>
+        <label class="row"><input type="checkbox" id="ribbons" checked> Hair ribbons (spring physics)</label>
+        <label class="row">Ribbon colour <input type="color" id="ribbon-color" value="#f28cb8"></label>
       </section>
 
       <section>
@@ -62,6 +71,7 @@
           <button type="button" data-view="side">Side</button>
         </div>
         <label class="row"><input type="checkbox" id="clay"> Clay preview (ignore textures)</label>
+        <label class="row"><input type="checkbox" id="helpers"> Show springs and colliders</label>
         <p class="stats" id="stats"></p>
       </section>
     </aside>

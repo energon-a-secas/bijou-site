@@ -6,6 +6,7 @@ import * as T from '../js/vendor/avatar-engine.js';
 import { loadVRM, loadVRMA, disposeVRM } from '../js/vrm-runtime.js';
 import { createMotion, GESTURE_NAMES } from '../js/vrm-motion.js';
 import { createSprings, createBody, stepVRM, PRESETS } from '../js/vrm-physics.js';
+import { attachRibbons } from '../js/vrm-accessory.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -87,30 +88,54 @@ function applyClay(on) {
   });
 }
 
+// Runtime accessories join the model's own spring manager and colliders.
+function setRibbons(on) {
+  if (!cur) return;
+  if (on && !cur.ribbons) cur.ribbons = attachRibbons(cur.vrm, $('ribbon-color').value);
+  if (!on && cur.ribbons) { cur.ribbons.dispose(); cur.ribbons = null; }
+  cur.springs.refresh();
+  applyClay($('clay').checked);
+  showHelpers($('helpers').checked);
+}
+
+// Spring and collider overlay, rebuilt whenever the joints change.
+let helpers = [];
+function showHelpers(on) {
+  for (const h of helpers) { h.removeFromParent(); h.dispose?.(); }
+  helpers = [];
+  const mgr = cur?.vrm.springBoneManager;
+  if (!on || !mgr) return;
+  for (const j of mgr.joints) helpers.push(new T.VRMSpringBoneJointHelper(j));
+  for (const c of mgr.colliders) helpers.push(new T.VRMSpringBoneColliderHelper(c));
+  for (const h of helpers) scene.add(h);
+}
+
+const SLIDERS = ['stiffness', 'gravity', 'drag', 'wind', 'bounce', 'inertia'];
 function physicsValues() {
-  return { stiffness: +$('stiffness').value, gravity: +$('gravity').value, drag: +$('drag').value, wind: +$('wind').value, enabled: $('springs').checked };
+  return { stiffness: +$('stiffness').value, gravity: +$('gravity').value, drag: +$('drag').value, wind: +$('wind').value, bounce: +$('bounce').value, inertia: +$('inertia').value, enabled: $('springs').checked, reduced };
 }
 
 function syncOutputs() {
-  for (const id of ['stiffness', 'gravity', 'drag', 'wind']) $(`o-${id}`).textContent = (+$(id).value).toFixed(2);
+  for (const id of SLIDERS) $(`o-${id}`).textContent = (+$(id).value).toFixed(2);
 }
 
 async function load(src, label = 'model') {
   status(`Loading ${label}…`);
   try {
     const { vrm, info } = await loadVRM(src);
-    if (cur) { scene.remove(cur.body.root); disposeVRM(cur.vrm); }
-    const springs = createSprings(vrm);
-    const motion = createMotion(vrm, { reduced });
+    if (cur) { showHelpers(false); scene.remove(cur.body.root); disposeVRM(cur.vrm); }
+    const motion = createMotion(vrm, { reduced, sleepAfter: +(params.get('sleep') || 60) });
     const body = createBody(vrm, {
       onLand: (impact) => {
         motion.mood({ happy: 0.7 }, 1.4);
         if (impact > 3) motion.gesture('nod');
       },
     });
+    const springs = createSprings(vrm, { root: body.root });
     body.state.reduced = reduced;
     scene.add(body.root);
-    cur = { vrm, springs, motion, body, info, label };
+    cur = { vrm, springs, motion, body, info, label, ribbons: null };
+    setRibbons($('ribbons').checked);
     springs.set({ ...PRESETS[preset], ...physicsValues() });
     applyClay($('clay').checked);
     motion.state.idle = $('idle').checked ? 1 : 0;
@@ -189,8 +214,22 @@ canvas.addEventListener('pointerdown', (e) => {
   canvas.setPointerCapture(e.pointerId);
   const p = hits[0].point.clone();
   onPlane(p);
-  press = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), head: p.y > neckY(), point: p, carrying: false };
+  press = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), head: p.y > neckY(), point: p, carrying: false, petting: false };
 });
+
+// Brushing: a moving pointer ruffles the hair and ribbons it passes through.
+const brush = { p: new T.Vector3(), t: 0, has: false };
+function brushThrough(h) {
+  onPlane(h);
+  if (!ray.ray.intersectPlane(plane, hit)) return;
+  const now = performance.now();
+  const dt = (now - brush.t) / 1000;
+  if (brush.has && dt > 0 && dt < 0.1) {
+    const vel = hit.clone().sub(brush.p).divideScalar(dt).clampLength(0, 3);
+    if (vel.length() > 0.15) cur.springs.touch({ ray: ray.ray, vel, radius: 0.09, gain: 1.6 });
+  }
+  brush.p.copy(hit); brush.t = now; brush.has = true;
+}
 
 canvas.addEventListener('pointermove', (e) => {
   if (!cur) return;
@@ -200,13 +239,23 @@ canvas.addEventListener('pointermove', (e) => {
     const head = cur.vrm.humanoid.getNormalizedBoneNode('head');
     if (head) {
       const h = head.getWorldPosition(new T.Vector3());
+      brushThrough(h);
       onPlane(h.clone().add(new T.Vector3().subVectors(camera.position, h).setY(0).normalize().multiplyScalar(0.6)));
       if (ray.ray.intersectPlane(plane, hit)) cur.motion.lookAt(hit);
     }
     return;
   }
   if (e.pointerId !== press.id) return;
-  if (!press.carrying && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 6) {
+  const moved = Math.hypot(e.clientX - press.x, e.clientY - press.y) > 6;
+  // On the head, a stroke is a pet; only a press-and-hold there picks her up.
+  if (!press.carrying && moved && press.head && performance.now() - press.t < 350) press.petting = true;
+  if (press.petting) {
+    const dx = e.movementX || 0;
+    cur.motion.pet(Math.sign(dx) * Math.min(1, Math.abs(dx) / 8));
+    if (ray.ray.intersectPlane(plane, hit)) cur.springs.touch({ point: hit, vel: new T.Vector3(dx * 0.05, -0.4, 0), radius: 0.14, gain: 1.2 });
+    return;
+  }
+  if (!press.carrying && moved) {
     press.carrying = true;
     cur.body.hold(press.point);
     cur.motion.setHeld(true);
@@ -221,11 +270,12 @@ function endPress(e) {
   controls.enabled = true;
   if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
   if (p.carrying) { cur.body.release(); cur.motion.setHeld(false); return; }
-  if (performance.now() - p.t > 600) return;
+  if (p.petting || performance.now() - p.t > 600) return;
   if (p.head) {
     cur.motion.mood({ happy: 1 }, 1.8);
     cur.motion.gesture('tilt');
     cur.body.poke(0.5);
+    cur.springs.touch({ point: p.point, vel: new T.Vector3(0, -1.6, 0), radius: 0.16 });
   } else {
     cur.motion.mood({ surprised: 0.8, happy: 0.4 }, 1.2);
     cur.body.poke(1);
@@ -262,14 +312,17 @@ function renderClips() {
   chips($('clips'), [...names.map((n) => [n, n]), ['__stop', 'Stop']], (n) => (n === '__stop' ? cur.motion.stopClip() : cur.motion.play(n)));
 }
 
-for (const id of ['stiffness', 'gravity', 'drag', 'wind']) {
+for (const id of SLIDERS) {
   $(id).addEventListener('input', () => { syncOutputs(); cur?.springs.set(physicsValues()); });
 }
+$('helpers').addEventListener('change', () => showHelpers($('helpers').checked));
 $('springs').addEventListener('change', () => { cur?.springs.set(physicsValues()); cur?.springs.reset(); });
 $('idle').addEventListener('change', () => { if (cur) cur.motion.state.idle = $('idle').checked ? 1 : 0; });
 $('follow').addEventListener('change', () => { if (cur) cur.motion.follow = $('follow').checked; });
 $('blink').addEventListener('change', () => { if (cur) cur.motion.blink = $('blink').checked; });
 $('clay').addEventListener('change', () => applyClay($('clay').checked));
+$('ribbons').addEventListener('change', () => setRibbons($('ribbons').checked));
+$('ribbon-color').addEventListener('input', () => cur?.ribbons?.recolor($('ribbon-color').value));
 
 document.querySelector('.panel').addEventListener('click', (e) => {
   const act = e.target.closest('[data-act]')?.dataset.act;
@@ -326,6 +379,7 @@ syncOutputs();
 for (const b of $('presets').children) b.setAttribute('aria-pressed', String(b.dataset.id === preset));
 window.lab = {
   load, frame, toss,
+  ribbons(on) { $('ribbons').checked = on; setRibbons(on); },
   get cur() { return cur; },
   step(seconds, dt = 1 / 60) { for (let t = 0; t < seconds; t += dt) frame(dt); renderer.render(scene, camera); },
   view: frameView,

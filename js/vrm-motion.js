@@ -4,9 +4,11 @@
 //   2. VRMA clips through an AnimationMixer, cross-faded
 //   3. procedural idle: breathing, weight shift, small head drift
 //   4. gestures authored in code (wave, twirl arms, cheer, shy, peace...)
-//   5. head and neck tracking toward a look point; the eyes do the rest
-//   6. blinking, smoothed expressions and talking
-// Springs are not touched here; vrm-physics.js steps them after this.
+//   5. head and neck tracking toward a look point; the eyes do the rest,
+//      with small saccades so they never stare like glass
+//   6. blinking, smoothed expressions, petting and talking
+// Left alone for `sleepAfter` seconds she dozes off; any interaction wakes
+// her. Springs are not touched here; vrm-physics.js steps them after this.
 
 import * as T from './vendor/avatar-engine.js';
 import { restPose, forwardOf, aim, boneNames } from './vrm-runtime.js';
@@ -87,11 +89,16 @@ export function createMotion(vrm, opts = {}) {
   const lookTarget = new T.Object3D();
   if (vrm.lookAt) vrm.lookAt.target = lookTarget;
   const exprNames = vrm.expressionManager ? Object.keys(vrm.expressionManager.expressionMap) : [];
-  const has = (n) => exprNames.includes(n);
+  // Custom VRM 0.x expressions keep their author's spelling ('Surprised'), so match case-insensitively.
+  const byLower = new Map(exprNames.map((n) => [n.toLowerCase(), n]));
+  const has = (n) => byLower.has(n.toLowerCase());
+  const real = (n) => byLower.get(n.toLowerCase()) || n;
   const st = {
     t: 0, idle: 1, reduced: !!opts.reduced, follow: true, yaw: 0, pitch: 0,
     gestures: [], mood: {}, cur: {}, blinkAt: 2 + Math.random() * 2, blinkT: -1, blinkOn: true,
     talkUntil: 0, wink: 0, held: false,
+    look: new T.Vector3(0, 1.4, 2), sacc: new T.Vector2(), saccAt: 1, saccades: true,
+    petUntil: 0, petSide: 0, lastSeen: 0, sleepAfter: opts.sleepAfter ?? 60, sleep: 0,
   };
 
   // ── Pose helpers used by gestures ─────────────────────────
@@ -157,6 +164,7 @@ export function createMotion(vrm, opts = {}) {
   function gesture(name) {
     const g = GESTURES[name];
     if (!g) return false;
+    if (name !== 'dangle') wake();
     st.gestures = st.gestures.filter((x) => x.name !== name);
     st.gestures.push({ name, g, t0: st.t, dur: g.dur });
     return true;
@@ -166,10 +174,22 @@ export function createMotion(vrm, opts = {}) {
     if (x) x.dur = Math.min(x.dur, st.t - x.t0 + 0.35);
   }
   function mood(values, hold = 2.5) {
+    wake();
     for (const [k, v] of Object.entries(values)) if (has(k)) st.mood[k] = { v, until: st.t + hold };
   }
-  function talk(seconds) { st.talkUntil = st.t + seconds; }
-  function lookAt(point) { lookTarget.position.copy(point); }
+  function talk(seconds) { wake(); st.talkUntil = st.t + seconds; }
+  function lookAt(point) { st.look.copy(point); wake(); }
+  /** Any interaction resets the doze timer; waking from a doze startles her a little. */
+  function wake() {
+    if (st.sleep > 0.5 && has('surprised')) st.mood.surprised = { v: 0.6, until: st.t + 0.8 };
+    st.lastSeen = st.t;
+  }
+  /** A stroke on the head: she leans into it and her eyes go soft. side: -1..1, the stroke's direction. */
+  function pet(side = 0) {
+    wake();
+    st.petUntil = st.t + 0.7;
+    st.petSide += (clamp(side, -1, 1) - st.petSide) * 0.3;
+  }
 
   // ── Per-frame layers ──────────────────────────────────────
   function idleLayer(t, k) {
@@ -206,13 +226,34 @@ export function createMotion(vrm, opts = {}) {
     return { exprs, wink, blinkHold };
   }
 
+  // Saccades: the eyes hop a few degrees every second or so (eyes only),
+  // returning to the point of attention about one hop in five.
+  const right = new T.Vector3(), up = new T.Vector3();
+  function saccadeLayer() {
+    if (st.t >= st.saccAt) {
+      const contact = Math.random() < 0.2 || !st.saccades;
+      const amp = st.reduced ? 0.02 : 0.05;
+      st.sacc.set(contact ? 0 : (Math.random() * 2 - 1) * amp, contact ? 0 : (Math.random() * 2 - 1) * amp * 0.6);
+      st.saccAt = st.t + 0.5 + Math.random() * Math.random() * 3;
+    }
+    const head = node.head;
+    lookTarget.position.copy(st.look);
+    if (!head) return;
+    head.getWorldPosition(headPos);
+    dir.copy(st.look).sub(headPos);
+    const dist = dir.length();
+    right.crossVectors(dir, T.Object3D.DEFAULT_UP).normalize();
+    up.crossVectors(right, dir).normalize();
+    lookTarget.position.addScaledVector(right, st.sacc.x * dist).addScaledVector(up, st.sacc.y * dist);
+  }
+
   const headPos = new T.Vector3(), dir = new T.Vector3(), invQ = new T.Quaternion();
   function gazeLayer(dt) {
     let yaw = 0, pitch = 0;
     const head = node.head;
-    if (st.follow && head) {
+    if (st.follow && head && st.sleep < 0.5) {
       head.getWorldPosition(headPos);
-      dir.copy(lookTarget.position).sub(headPos);
+      dir.copy(st.look).sub(headPos);
       vrm.scene.getWorldQuaternion(invQ).invert();
       dir.applyQuaternion(invQ);
       yaw = clamp(Math.atan2(fwd * dir.x, fwd * dir.z), -0.75, 0.75);
@@ -223,6 +264,16 @@ export function createMotion(vrm, opts = {}) {
     st.pitch += (pitch - st.pitch) * k;
     turn('neck', st.yaw * 0.35, st.pitch * 0.35, 0);
     turn('head', st.yaw * 0.45, st.pitch * 0.45, 0);
+    // Petting: lean into the hand. Dozing: the head droops and tips.
+    const petting = st.t < st.petUntil ? 1 : 0;
+    st.petW = (st.petW || 0) + (petting - (st.petW || 0)) * (1 - Math.exp(-dt * 6));
+    if (st.petW > 0.01) turn('head', 0, 0.07 * st.petW, -0.16 * st.petSide * st.petW);
+    if (st.sleep > 0.01) {
+      const nod = 0.02 * Math.sin(st.t * 0.9);
+      turn('neck', 0, (0.22 + nod) * st.sleep, 0.05 * st.sleep);
+      turn('head', 0.04 * st.sleep, 0.12 * st.sleep, 0.12 * st.sleep);
+      turn('spine', 0, 0.05 * st.sleep, 0);
+    }
   }
 
   function faceLayer(dt, g) {
@@ -231,6 +282,8 @@ export function createMotion(vrm, opts = {}) {
     for (const [k, m] of Object.entries(st.mood)) if (m.until > st.t) target[k] = m.v; else delete st.mood[k];
     for (const [k, v] of Object.entries(g.exprs)) if (has(k)) target[k] = Math.max(target[k] || 0, v);
     if (st.held && has('surprised')) target.surprised = Math.max(target.surprised || 0, 0.7);
+    if (st.petW > 0.05 && has('happy')) target.happy = Math.max(target.happy || 0, 0.85 * st.petW);
+    if (st.sleep > 0.05 && has('relaxed')) target.relaxed = Math.max(target.relaxed || 0, 0.6 * st.sleep);
     // Blink, with an occasional double blink.
     let blink = 0;
     if (st.blinkOn && st.t >= st.blinkAt && st.blinkT < 0) st.blinkT = 0;
@@ -240,7 +293,8 @@ export function createMotion(vrm, opts = {}) {
       blink = b < 0.06 ? b / 0.06 : b < 0.1 ? 1 : b < 0.2 ? 1 - (b - 0.1) / 0.1 : 0;
       if (b >= 0.2) { st.blinkT = -1; st.blinkAt = st.t + (Math.random() < 0.18 ? 0.25 : 2.2 + Math.random() * 3.8); }
     }
-    target.blink = Math.max(blink, g.blinkHold);
+    // Soft eyes while petted; closed while dozing.
+    target.blink = Math.max(blink, g.blinkHold, 0.45 * (st.petW || 0), st.sleep);
     if (g.wink && has('blinkLeft')) target.blinkLeft = g.wink;
     const talking = st.t < st.talkUntil;
     if (has('aa')) target.aa = talking ? 0.35 + 0.35 * Math.max(0, Math.sin(st.t * 18)) : 0;
@@ -250,7 +304,7 @@ export function createMotion(vrm, opts = {}) {
       const fast = n === 'blink' || n === 'aa' || n === 'blinkLeft';
       const v = fast ? want : (st.cur[n] || 0) + (want - (st.cur[n] || 0)) * k;
       st.cur[n] = v;
-      vrm.expressionManager.setValue(n, clamp(v, 0, 1));
+      vrm.expressionManager.setValue(real(n), clamp(v, 0, 1));
     }
   }
 
@@ -259,24 +313,30 @@ export function createMotion(vrm, opts = {}) {
     for (const n of names) node[n].quaternion.copy(base[n]);
     node.hips.position.copy(hipsRest);
     mixer.update(dt);
-    const k = (action ? 0.3 : 1) * (st.reduced ? 0.3 : 1) * st.idle;
+    // Doze after being left alone: eased in over seconds, out quickly on waking.
+    const dozing = st.sleepAfter > 0 && !st.held && st.t - st.lastSeen > st.sleepAfter ? 1 : 0;
+    st.sleep += (dozing - st.sleep) * (1 - Math.exp(-dt * (dozing ? 0.6 : 4)));
+    const k = (action ? 0.3 : 1) * (st.reduced ? 0.3 : 1) * st.idle * (1 - 0.5 * st.sleep);
     idleLayer(st.t, k);
+    saccadeLayer();
     const g = gestureLayer(st.t);
     gazeLayer(dt);
     faceLayer(dt, g);
   }
 
   function setHeld(on) {
+    wake();
     st.held = on;
     if (on) gesture('dangle'); else release('dangle');
   }
 
   return {
-    update, addClip, play, stopClip, gesture, release, mood, talk, lookAt, setHeld,
+    update, addClip, play, stopClip, gesture, release, mood, talk, lookAt, setHeld, pet, wake,
     get clips() { return [...clips.keys()]; },
     get state() { return st; },
     get expressions() { return exprNames; },
     set follow(v) { st.follow = v; },
+    set saccades(v) { st.saccades = v; },
     set blink(v) { st.blinkOn = v; },
     set reduced(v) { st.reduced = v; },
   };
