@@ -55,9 +55,12 @@ geometry and textile patterns are procedural project code.
 
 Bundled with esbuild 0.25.10; no runtime CDN or build step is required.
 `dev/vendor-avatar.sh` documents the reproducible bundle command. The script
-also exports Three.js's MeshoptDecoder (MIT, same `THREE-LICENSE.txt`) for
-meshopt-compressed GLBs; the committed bundle predates that line and gains it
-at its next rebuild.
+also builds `js/vendor/meshopt-decoder.js`, meshoptimizer's decoder as
+Three.js 0.180.0 ships it (MIT, Copyright (C) 2016-2024 Arseny Kapoulkine;
+`js/vendor/MESHOPTIMIZER-LICENSE.txt`), for meshopt-compressed GLBs in
+`dev/retarget.html` only. It compiles WebAssembly as it loads, which the
+companion's CSP forbids, so it is never part of `avatar-engine.js`. Neither
+file exists until the script next runs.
 
 `js/vendor/model-exporter.js` bundles the Three.js **0.180.0 GLTFExporter** (MIT,
 same `THREE-LICENSE.txt`), importing the existing renderer rather than another

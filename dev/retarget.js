@@ -15,6 +15,14 @@ const params = new URLSearchParams(location.search);
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const CLIP = 'retargeted';
 
+// meshoptimizer's decoder, for meshopt-compressed GLBs (every Mesh2Motion
+// file). It compiles WebAssembly as it loads, which the companion's CSP
+// forbids, so dev/vendor-avatar.sh builds it as a dev-only module beside the
+// engine bundle, never into it. Until that script next runs, it is absent.
+const meshopt = await import('../js/vendor/meshopt-decoder.js')
+  .then(({ MeshoptDecoder: d }) => (d.supported ? d.ready.then(() => d) : null))
+  .catch(() => null);
+
 // ── Scene ────────────────────────────────────────────────────
 const canvas = $('view');
 const renderer = new T.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
@@ -70,9 +78,9 @@ const status = (msg) => { $('status').textContent = msg; };
 // What this engine bundle can read, said plainly on the page.
 function renderSupport() {
   const notes = [
-    T.MeshoptDecoder
-      ? ['ok', '<strong>Meshopt decoder:</strong> in the bundle, so meshopt-compressed GLBs (Mesh2Motion) open.']
-      : ['missing', '<strong>Meshopt decoder: missing</strong> from js/vendor/avatar-engine.js, so meshopt-compressed GLBs, which is every Mesh2Motion file, will not open. dev/vendor-avatar.sh now exports it; rebuild the bundle with that script.'],
+    meshopt
+      ? ['ok', '<strong>Meshopt decoder:</strong> loaded from js/vendor/meshopt-decoder.js, so meshopt-compressed GLBs (Mesh2Motion) open.']
+      : ['missing', '<strong>Meshopt decoder: missing.</strong> js/vendor/meshopt-decoder.js has not been built (or this browser has no WebAssembly), so meshopt-compressed GLBs, which is every Mesh2Motion file, will not open. Run dev/vendor-avatar.sh to build it.'],
     T.FBXLoader
       ? ['ok', '<strong>FBX loader:</strong> in the bundle.']
       : ['missing', '<strong>FBX loader: missing</strong> from the bundle, so .fbx files (Mixamo) will not open here. Convert them to GLB in Blender first, or add FBXLoader to dev/vendor-avatar.sh.'],
@@ -157,12 +165,12 @@ async function readSource(file) {
     return { root, clips: root.animations || [] };
   }
   const loader = new T.GLTFLoader();
-  if (T.MeshoptDecoder) loader.setMeshoptDecoder(T.MeshoptDecoder);
+  if (meshopt) loader.setMeshoptDecoder(meshopt);
   try {
     const gltf = await loader.parseAsync(await file.arrayBuffer(), '');
     return { root: gltf.scene, clips: gltf.animations || [] };
   } catch (err) {
-    if (!T.MeshoptDecoder && /meshopt/i.test(err.message)) throw new Error('it is meshopt-compressed and this engine bundle has no MeshoptDecoder. Rebuild js/vendor/avatar-engine.js with dev/vendor-avatar.sh.');
+    if (!meshopt && /meshopt/i.test(err.message)) throw new Error('it is meshopt-compressed and js/vendor/meshopt-decoder.js is missing. Run dev/vendor-avatar.sh to build it.');
     throw err;
   }
 }
