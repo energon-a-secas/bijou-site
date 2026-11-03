@@ -7,6 +7,7 @@ import { loadVRM, loadVRMA, disposeVRM } from '../js/vrm-runtime.js';
 import { createMotion, GESTURE_NAMES } from '../js/vrm-motion.js';
 import { createSprings, createBody, stepVRM, PRESETS } from '../js/vrm-physics.js';
 import { attachRibbons } from '../js/vrm-accessory.js';
+import { bindTuning } from './lab-tuning.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -137,6 +138,7 @@ async function load(src, label = 'model') {
     cur = { vrm, springs, motion, body, info, label, ribbons: null };
     setRibbons($('ribbons').checked);
     springs.set({ ...PRESETS[preset], ...physicsValues() });
+    tune(cur);
     applyClay($('clay').checked);
     motion.state.idle = $('idle').checked ? 1 : 0;
     // Let springs settle in the rest pose before the first frame is shown.
@@ -323,6 +325,7 @@ $('blink').addEventListener('change', () => { if (cur) cur.motion.blink = $('bli
 $('clay').addEventListener('change', () => applyClay($('clay').checked));
 $('ribbons').addEventListener('change', () => setRibbons($('ribbons').checked));
 $('ribbon-color').addEventListener('input', () => cur?.ribbons?.recolor($('ribbon-color').value));
+const tune = bindTuning(() => cur);
 
 document.querySelector('.panel').addEventListener('click', (e) => {
   const act = e.target.closest('[data-act]')?.dataset.act;

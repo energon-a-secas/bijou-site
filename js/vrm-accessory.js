@@ -6,8 +6,12 @@
 // from the avatar's current pose, then parented to a raw bone. Offsets are
 // in the avatar's own frame (the parent of vrm.scene, where both VRM 0.x
 // and 1.0 models face +Z), so they hold for either version and mid-spin.
+// Each link carries a cone limit (js/vrm-limits.js): it stays within that
+// angle of the link above it, so a strip never kinks sharply at one joint,
+// though a long strip can still curl or trail out in a hard toss or twirl.
 
 import * as T from './vendor/avatar-engine.js';
+import { setCone } from './vrm-limits.js';
 
 /** World-space direction of [x, y, z] given in the avatar's frame. */
 function inFrame(vrm, v) {
@@ -18,7 +22,10 @@ function inFrame(vrm, v) {
 /**
  * Attach a hanging strip to a humanoid bone.
  * opts: { bone, offset: [x, y, z] in metres (avatar front is +Z), length,
- *         links, width, color, stiffness, gravity, drag, hit, twist }
+ *         links, width, color, stiffness, gravity, drag, hit, twist,
+ *         cone: degrees each link may swing from its rest direction
+ *         relative to the link above it (default 60; null or 180 for
+ *         free, which the spring controller's hair cone then leaves free) }
  * Returns { object, joints, dispose }.
  */
 export function attachStrip(vrm, opts = {}) {
@@ -93,6 +100,8 @@ export function attachStrip(vrm, opts = {}) {
   for (let i = 0; i < links; i++) {
     const j = new T.VRMSpringBoneJoint(bones[i], bones[i + 1], { ...settings, gravityDir: settings.gravityDir.clone() }, groups);
     j.setInitState();
+    // The strip owns each link's cone, free or not, so the controller's cones by name leave it alone.
+    setCone(j, opts.cone === undefined ? 60 : opts.cone, 'vrm-accessory');
     mgr.addJoint(j);
     joints.push(j);
   }
@@ -116,7 +125,7 @@ function clampT(n, a, b) { return Math.min(b, Math.max(a, n)); }
 export function attachRibbons(vrm, color = '#f28cb8') {
   const strips = [-1, 1].map((s) => attachStrip(vrm, {
     name: `ribbon${s < 0 ? 'L' : 'R'}`, bone: 'head', offset: [s * 0.055, 0.07, -0.075],
-    length: 0.36, links: 8, width: 0.04, color, twist: s * 0.7,
+    length: 0.36, links: 8, width: 0.04, color, twist: s * 0.7, cone: 60,
   })).filter(Boolean);
   const head = vrm.humanoid.getRawBoneNode('head');
   const bowMat = new T.MeshToonMaterial({ color });
