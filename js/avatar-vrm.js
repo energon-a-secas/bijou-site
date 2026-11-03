@@ -404,18 +404,19 @@ export function createVrmAvatar(svg) {
   }
 
   // ── Teardown ───────────────────────────────────────────────
+  /** Everything 3D. A failed start and dispose() both end here, so nothing later reaches a disposed renderer. */
   function release() {
+    ac.abort();
     ribbons?.dispose();
     if (body) scene.remove(body.root);
     disposeVRM(vrm);
     renderer?.dispose();
-    ribbons = vrm = motion = body = springs = null;
+    ribbons = vrm = motion = body = springs = renderer = null;
   }
   function dispose() {
     if (disposed) return;
     disposed = true;
     active = false;
-    ac.abort();
     release();
     shadow.geometry.dispose();
     shadow.material.map.dispose();
