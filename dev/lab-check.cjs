@@ -2,6 +2,9 @@
 // no console errors, measures how far spring tails move when she is tossed and
 // spun, and saves screenshots. Needs the dev server (make serve) and Playwright.
 //   node dev/lab-check.cjs [outDir] [modelUrl]
+// LAB_URL points it at another server (a worktree on its own port), and
+// NODE_PATH can supply Playwright from the monorepo root node_modules.
+const BASE = (process.env.LAB_URL || 'http://localhost:8897').replace(/\/$/, '');
 let chromium;
 try { ({ chromium } = require('playwright')); } catch { ({ chromium } = require('../../../node_modules/playwright')); }
 const path = require('node:path');
@@ -17,7 +20,7 @@ fs.mkdirSync(out, { recursive: true });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.goto(`http://localhost:8897/dev/lab.html?still=1&v=${Date.now()}${model}`);
+  await page.goto(`${BASE}/dev/lab.html?still=1&v=${Date.now()}${model}`);
   await page.waitForFunction(() => window.lab && window.lab.cur, null, { timeout: 60000 });
   const info = await page.evaluate(() => window.lab.cur.info);
   console.log('model:', info.name, '|', info.version, '|', info.license.summary, '| springs', info.springs, '| expressions', info.expressions.length);
