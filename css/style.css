@@ -529,10 +529,6 @@ html:not([data-theme]) {
 }
 
 .eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .16em; line-height: 1.6; }
-.atelier-intro { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: end; gap: 16px; padding: 0 2px 3px; }
-.atelier-intro .eyebrow { color: var(--accent); margin-bottom: 5px; }
-.atelier-intro h2 { font-size: 25px; line-height: 1.2; font-weight: 550; letter-spacing: -.035em; color: oklch(0.94 0.018 65); }
-.atelier-intro > p { color: var(--text-secondary); font-size: 12px; padding-bottom: 3px; }
 .stage-heading { position: absolute; top: 28px; left: 30px; z-index: 2; max-width: min(220px, calc(100% - 160px)); pointer-events: none; color: oklch(0.4 0.06 15); }
 .stage-heading .eyebrow { font-size: 9px; }
 .stage-heading h2 { font-family: Georgia, 'Times New Roman', serif; font-size: 40px; font-weight: 400; letter-spacing: -.04em; line-height: 1.15; margin: 5px 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -549,8 +545,7 @@ html:not([data-theme]) {
 .stage-tools .chip > span { font-size: 16px; margin-right: 3px; }
 .stage .request { top: 135px; max-width: 220px; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; padding: 23px 22px 18px; }
-.panel-heading .eyebrow { color: var(--accent); font-size: 9px; }
-.panel-heading h2 { font-size: 21px; font-weight: 550; letter-spacing: -.025em; margin-top: 5px; }
+.panel-heading h2 { font-size: 21px; font-weight: 550; letter-spacing: -.025em; }
 .panel-heading > span { font-size: 32px; color: oklch(0.75 0.07 75); }
 .signature-looks { padding: 0 20px 18px; }
 .signature-looks h3 { font-size: 11px; font-weight: 500; color: var(--text-secondary); margin-bottom: 9px; }
@@ -608,7 +603,7 @@ html:not([data-theme]) {
 
 .stage {
   position: relative; overflow: hidden; isolation: isolate;
-  height: clamp(520px, calc(100dvh - 278px), 860px);
+  height: clamp(520px, calc(100dvh - 204px), 860px);
   border-radius: 16px; border: 1px solid oklch(0.52 0.025 40);
   background: oklch(0.94 0.018 65);
   transition: box-shadow var(--dur, 200ms) var(--ease-out);
@@ -710,7 +705,7 @@ html:not([data-theme]) {
 .panel {
   display: flex; flex-direction: column; min-height: 0; min-width: 0;
   border: 1px solid oklch(0.36 0.016 345); border-radius: 16px; background: oklch(0.2 0.014 345);
-  height: clamp(584px, calc(100dvh - 214px), 924px);
+  height: clamp(584px, calc(100dvh - 140px), 924px);
 }
 .tabs { display: flex; gap: 2px; padding: 6px; border-bottom: 1px solid var(--border); }
 .tab {
@@ -794,7 +789,7 @@ fieldset.control-row > .field__label + * { clear: both; }
 .companion-list strong { color: var(--text-primary); }
 
 /* Companion view: only the doll, for a small window parked beside your work. */
-body.is-companion .panel, body.is-companion .wearing, body.is-companion .atelier-intro { display: none; }
+body.is-companion .panel, body.is-companion .wearing { display: none; }
 body.is-companion .bijou { grid-template-columns: minmax(0, 1fr); max-width: none; padding: var(--space-2); }
 body.is-companion .stage { height: calc(100dvh - 56px - 50px - 24px); min-height: 320px; }
 
@@ -807,8 +802,6 @@ body.is-companion .stage { height: calc(100dvh - 56px - 50px - 24px); min-height
   .bijou { grid-template-columns: minmax(0, 1fr); padding: var(--space-3); }
   .panel { height: auto; min-height: 420px; }
   .tabpanel { overflow: visible; }
-  .atelier-intro { align-items: start; flex-direction: column; gap: 7px; padding: 4px 2px 6px; }
-  .atelier-intro h2 { font-size: 24px; }
   .stage .backdrop { top: auto; bottom: 50px; height: calc(100% - 50px); }
   .stage .doll { height: calc((100% - 50px) * .95); bottom: calc(50px + 1.5%); }
   .stage .stage-tools { bottom: 10px; left: 12px; right: 12px; max-width: none; justify-content: center; }
